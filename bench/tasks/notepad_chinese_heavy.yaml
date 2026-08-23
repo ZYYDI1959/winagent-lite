@@ -5,6 +5,8 @@ runs: 5
 verify_level: A
 setup:
   - kill_process: notepad
+  - kill_process: taskmgr
+  - kill_process: calc
   - create_file: {path: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt', content: "BASE-基线\n"}
 steps:
   - launch: notepad_note
