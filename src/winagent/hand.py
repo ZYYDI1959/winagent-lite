@@ -1,0 +1,166 @@
+"""手：真实鼠标与键盘输入（user32，isTrusted=true 级系统事件）。
+
+鼠标部分移植自 tools/click.ps1（SetCursorPos + mouse_event）；
+键盘部分为本项目新增：SendInput + KEYEVENTF_UNICODE，按字符直输，
+天然支持中文等任意 Unicode，不经过输入法。
+坐标一律为虚拟屏幕物理像素。
+"""
+from __future__ import annotations
+
+import ctypes
+import time
+from ctypes import wintypes
+
+_user32 = ctypes.windll.user32
+
+try:
+    _user32.SetProcessDPIAware()  # 多显示器/缩放下坐标一致性
+except Exception:
+    pass
+
+MOUSEEVENTF_LEFTDOWN = 0x0002
+MOUSEEVENTF_LEFTUP = 0x0004
+MOUSEEVENTF_RIGHTDOWN = 0x0008
+MOUSEEVENTF_RIGHTUP = 0x0010
+
+INPUT_KEYBOARD = 1
+KEYEVENTF_KEYUP = 0x0002
+KEYEVENTF_UNICODE = 0x0004
+
+VK_BACK = 0x08
+VK_TAB = 0x09
+VK_RETURN = 0x0D
+VK_SHIFT = 0x10
+VK_CONTROL = 0x11
+VK_MENU = 0x12
+VK_ESCAPE = 0x1B
+VK_LWIN = 0x5B
+
+_KEY_NAMES = {
+    "back": VK_BACK,
+    "tab": VK_TAB,
+    "enter": VK_RETURN,
+    "shift": VK_SHIFT,
+    "ctrl": VK_CONTROL,
+    "alt": VK_MENU,
+    "esc": VK_ESCAPE,
+    "win": VK_LWIN,
+}
+
+
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", wintypes.WORD),
+        ("wScan", wintypes.WORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_size_t),
+    ]
+
+
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = [
+        ("dx", wintypes.LONG),
+        ("dy", wintypes.LONG),
+        ("mouseData", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_size_t),
+    ]
+
+
+class HARDWAREINPUT(ctypes.Structure):
+    _fields_ = [
+        ("uMsg", wintypes.DWORD),
+        ("wParamL", wintypes.WORD),
+        ("wParamH", wintypes.WORD),
+    ]
+
+
+class _INPUTUNION(ctypes.Union):
+    _fields_ = [("mi", MOUSEINPUT), ("ki", KEYBDINPUT), ("hi", HARDWAREINPUT)]
+
+
+class INPUT(ctypes.Structure):
+    _anonymous_ = ("u",)
+    _fields_ = [("type", wintypes.DWORD), ("u", _INPUTUNION)]
+
+
+def _send_key(wVk: int = 0, wScan: int = 0, flags: int = 0) -> None:
+    inp = INPUT(type=INPUT_KEYBOARD)
+    inp.ki = KEYBDINPUT(wVk=wVk, wScan=wScan, dwFlags=flags)
+    _user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+
+
+def press(vk: int, times: int = 1, hold_ms: int = 20) -> None:
+    """按下并释放一个虚拟键，可重复。"""
+    for _ in range(times):
+        _send_key(wVk=vk)
+        time.sleep(hold_ms / 1000)
+        _send_key(wVk=vk, flags=KEYEVENTF_KEYUP)
+        time.sleep(hold_ms / 1000)
+
+
+def hotkey(*vks: int, hold_ms: int = 30) -> None:
+    """组合键：依次按下、逆序释放，如 hotkey(VK_CONTROL, 0x53) = Ctrl+S。"""
+    for vk in vks:
+        _send_key(wVk=vk)
+        time.sleep(hold_ms / 1000)
+    for vk in reversed(vks):
+        _send_key(wVk=vk, flags=KEYEVENTF_KEYUP)
+        time.sleep(hold_ms / 1000)
+
+
+def type_text(text: str, interval_ms: int = 8) -> None:
+    """向当前焦点窗口逐字符输入，支持任意 Unicode（含中文）。"""
+    for ch in text:
+        _send_key(wScan=ord(ch), flags=KEYEVENTF_UNICODE)
+        time.sleep(interval_ms / 1000)
+        _send_key(wScan=ord(ch), flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)
+        time.sleep(interval_ms / 1000)
+
+
+def move_to(x: int, y: int) -> None:
+    _user32.SetCursorPos(int(x), int(y))
+
+
+def get_cursor_pos() -> tuple[int, int]:
+    pt = wintypes.POINT()
+    _user32.GetCursorPos(ctypes.byref(pt))
+    return pt.x, pt.y
+
+
+def click(
+    x: int | None = None,
+    y: int | None = None,
+    *,
+    double: bool = False,
+    right: bool = False,
+    settle_ms: int = 120,
+) -> None:
+    """真实鼠标点击；给定坐标则先移动再点。"""
+    if x is not None and y is not None:
+        move_to(x, y)
+        time.sleep(settle_ms / 1000)
+    down, up = (
+        (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP)
+        if right
+        else (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)
+    )
+    for i in range(2 if double else 1):
+        _user32.mouse_event(down, 0, 0, 0, 0)
+        _user32.mouse_event(up, 0, 0, 0, 0)
+        if double and i == 0:
+            time.sleep(0.06)
+
+
+def key_by_name(name: str) -> int:
+    """把 'enter'/'ctrl'/'s' 这类名字解析成虚拟键码。"""
+    low = name.lower()
+    if low in _KEY_NAMES:
+        return _KEY_NAMES[low]
+    if len(low) == 1 and "a" <= low <= "z":
+        return ord(low.upper())
+    if len(low) == 1 and low.isdigit():
+        return ord(low)
+    raise ValueError(f"无法识别的按键名: {name!r}")
