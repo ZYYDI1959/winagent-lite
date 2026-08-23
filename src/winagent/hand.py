@@ -36,6 +36,11 @@ VK_MENU = 0x12
 VK_ESCAPE = 0x1B
 VK_LWIN = 0x5B
 
+_user32_vk = ctypes.windll.user32
+_VkKeyScanW = _user32_vk.VkKeyScanW
+_VkKeyScanW.restype = ctypes.c_short
+_VkKeyScanW.argtypes = [ctypes.c_wchar]
+
 _KEY_NAMES = {
     "back": VK_BACK,
     "tab": VK_TAB,
@@ -113,13 +118,35 @@ def hotkey(*vks: int, hold_ms: int = 30) -> None:
         time.sleep(hold_ms / 1000)
 
 
+def _type_char_vk(ch: str, hold_ms: int = 8) -> None:
+    """ASCII 可打印字符走虚拟键路径（WinUI 应用如计算器不认 UNICODE 注入的运算符）。"""
+    code = _VkKeyScanW(ch)
+    vk = code & 0xFF
+    shift = bool(code >> 8 & 1)
+    if shift:
+        _send_key(wVk=VK_SHIFT)
+    _send_key(wVk=vk)
+    time.sleep(hold_ms / 1000)
+    _send_key(wVk=vk, flags=KEYEVENTF_KEYUP)
+    if shift:
+        _send_key(wVk=VK_SHIFT, flags=KEYEVENTF_KEYUP)
+    time.sleep(hold_ms / 1000)
+
+
 def type_text(text: str, interval_ms: int = 8) -> None:
-    """向当前焦点窗口逐字符输入，支持任意 Unicode（含中文）。"""
+    """向当前焦点窗口逐字符输入。
+
+    ASCII 可打印字符走虚拟键（真实按键语义，兼容 WinUI 应用），
+    其余（中文等）走 UNICODE 直输。
+    """
     for ch in text:
-        _send_key(wScan=ord(ch), flags=KEYEVENTF_UNICODE)
-        time.sleep(interval_ms / 1000)
-        _send_key(wScan=ord(ch), flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)
-        time.sleep(interval_ms / 1000)
+        if ch.isascii() and ch.isprintable():
+            _type_char_vk(ch, interval_ms)
+        else:
+            _send_key(wScan=ord(ch), flags=KEYEVENTF_UNICODE)
+            time.sleep(interval_ms / 1000)
+            _send_key(wScan=ord(ch), flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)
+            time.sleep(interval_ms / 1000)
 
 
 def move_to(x: int, y: int) -> None:

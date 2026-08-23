@@ -38,6 +38,11 @@ def main() -> None:
     p_bench.add_argument("--tasks", default="all", help="任务 id 逗号分隔，或 all")
     p_bench.add_argument("--runs", type=int, default=None, help="覆盖每任务运行次数")
 
+    p_plan = sub.add_parser("plan", help="自然语言目标 -> 步骤序列（本地文本模型规划）")
+    p_plan.add_argument("goal")
+    p_plan.add_argument("--model", default=None, help="规划模型，默认 qwen3-8b-fast")
+    p_plan.add_argument("--execute", action="store_true", help="规划后立即执行（会动键鼠）")
+
     args = parser.parse_args()
 
     if args.command == "version":
@@ -93,6 +98,18 @@ def main() -> None:
         ids = None if args.tasks == "all" else [t.strip() for t in args.tasks.split(",") if t.strip()]
         report = run_bench(ids, runs_override=args.runs)
         print(f"BENCH-DONE {report}")
+    elif args.command == "plan":
+        import json as _json
+
+        from winagent import agent, planner
+        from winagent.config import load_config
+
+        steps = planner.plan(args.goal, model=args.model, cfg=load_config())
+        print(_json.dumps(steps, ensure_ascii=False, indent=2))
+        if args.execute:
+            result = agent.run_steps(steps, load_config())
+            print(f"RESULT: success={result['success']} steps={result['done']}")
+            raise SystemExit(0 if result["success"] else 1)
     else:
         parser.print_help()
 

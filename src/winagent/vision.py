@@ -128,3 +128,12 @@ def ask(word: str, cfg: Config | None = None) -> bool:
     small = downscale(img, cfg.max_image_width)
     answer = _generate(_ASK_PROMPT.format(word=word), small, cfg)
     return "YES" in answer.upper()
+
+
+def generate_text(prompt: str, model: str, base_url: str | None = None, timeout: int = 120) -> str:
+    """纯文本生成（planner 等用），走与视觉相同的受控 Ollama 通道。"""
+    url = _request_url(base_url or "http://localhost:11434")
+    payload = {"model": model, "prompt": prompt, "stream": False}
+    resp = requests.post(url, json=payload, timeout=timeout, allow_redirects=False)
+    resp.raise_for_status()
+    return resp.json()["response"]
