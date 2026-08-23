@@ -1,0 +1,12 @@
+id: clock_flyout_3b
+description: 同 clock_flyout_7b 但换 3b 眼睛（模型对比实验）
+model: qwen2.5vl:3b
+runs: 5
+verify_level: A
+steps:
+  - click:
+      target: 任务栏右下角的时钟时间数字
+      diff_region: [1300, 400, 1920, 1030]
+      max_tries: 5
+teardown:
+  - press: esc

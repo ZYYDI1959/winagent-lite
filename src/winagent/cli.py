@@ -34,6 +34,10 @@ def main() -> None:
     p_run.add_argument("file", help="步骤 YAML 文件路径")
     p_run.add_argument("--config", default=None, help="config.yaml 路径")
 
+    p_bench = sub.add_parser("bench", help="跑评测集")
+    p_bench.add_argument("--tasks", default="all", help="任务 id 逗号分隔，或 all")
+    p_bench.add_argument("--runs", type=int, default=None, help="覆盖每任务运行次数")
+
     args = parser.parse_args()
 
     if args.command == "version":
@@ -83,6 +87,12 @@ def main() -> None:
         result = run_steps(data.get("steps", []), load_config(args.config), trace_path=str(trace))
         print(f"RESULT: success={result['success']} steps={result['done']} trace={trace}")
         raise SystemExit(0 if result["success"] else 1)
+    elif args.command == "bench":
+        from winagent.bench import bench as run_bench
+
+        ids = None if args.tasks == "all" else [t.strip() for t in args.tasks.split(",") if t.strip()]
+        report = run_bench(ids, runs_override=args.runs)
+        print(f"BENCH-DONE {report}")
     else:
         parser.print_help()
 

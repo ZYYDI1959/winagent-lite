@@ -1,0 +1,12 @@
+id: start_menu_7b
+description: 视觉定位开始按钮（7b 已知弱项，量化小目标能力边界）
+model: qwen2.5vl:7b
+runs: 3
+verify_level: A
+steps:
+  - click:
+      target: 任务栏上的 Windows 开始按钮
+      diff_region: [100, 200, 1820, 1000]
+      max_tries: 3
+teardown:
+  - press: esc

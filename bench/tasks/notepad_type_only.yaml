@@ -1,0 +1,19 @@
+id: notepad_type_only
+description: 不点击仅靠焦点等待→输入→保存（对照组：视觉点击是否必要）
+runs: 5
+verify_level: A
+setup:
+  - kill_process: notepad
+  - create_file: {path: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt', content: "LINE-1-原始内容 12345\n"}
+steps:
+  - launch: notepad_note
+    focus: Notepad
+  - wait: 0.5
+  - type: " NOCLICK-追加 888"
+  - key: ctrl+s
+  - wait: 1.2
+verify:
+  file_contains: {path: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt', text: 'NOCLICK-追加 888'}
+teardown:
+  - kill_process: notepad
+  - delete_file: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt'

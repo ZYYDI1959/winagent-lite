@@ -1,0 +1,23 @@
+id: notepad_chinese_heavy
+description: 视觉点击编辑区→长中英数字混合输入→保存（打字保真度压测）
+model: qwen2.5vl:7b
+runs: 5
+verify_level: A
+setup:
+  - kill_process: notepad
+  - create_file: {path: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt', content: "BASE-基线\n"}
+steps:
+  - launch: notepad_note
+    focus: Notepad
+  - click:
+      target: 记事本窗口中间的白色文本编辑区域
+      max_tries: 2
+  - wait: 0.3
+  - type: " 压测行：人工智能代理在真实图形界面上完成操作，准确率 ABC-123-xyz，结束。"
+  - key: ctrl+s
+  - wait: 1.2
+verify:
+  file_contains: {path: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt', text: '准确率 ABC-123-xyz'}
+teardown:
+  - kill_process: notepad
+  - delete_file: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt'

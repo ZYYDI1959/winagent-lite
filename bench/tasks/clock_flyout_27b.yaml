@@ -1,0 +1,12 @@
+id: clock_flyout_27b
+description: 同 clock_flyout_7b 但换 27b 眼睛（模型对比实验，慢速只跑3次）
+model: qwen3.8:27b
+runs: 3
+verify_level: A
+steps:
+  - click:
+      target: 任务栏右下角的时钟时间数字
+      diff_region: [1300, 400, 1920, 1030]
+      max_tries: 3
+teardown:
+  - press: esc

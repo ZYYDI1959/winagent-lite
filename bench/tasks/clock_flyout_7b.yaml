@@ -1,0 +1,12 @@
+id: clock_flyout_7b
+description: 视觉定位任务栏时钟→容差点击→像素差分验证弹窗
+model: qwen2.5vl:7b
+runs: 5
+verify_level: A
+steps:
+  - click:
+      target: 任务栏右下角的时钟时间数字
+      diff_region: [1300, 400, 1920, 1030]
+      max_tries: 5
+teardown:
+  - press: esc

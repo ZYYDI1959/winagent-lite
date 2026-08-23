@@ -1,0 +1,13 @@
+id: taskmgr_open
+description: 启动任务管理器并确认进程存在（纯启动+进程验证，无视觉）
+runs: 5
+verify_level: A
+setup:
+  - kill_process: taskmgr
+steps:
+  - launch: taskmgr
+  - wait: 3.0
+verify:
+  process_running: taskmgr
+teardown:
+  - kill_process: taskmgr
