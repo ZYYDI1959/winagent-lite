@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 from winagent import __version__
 
@@ -28,6 +29,10 @@ def main() -> None:
 
     p_key = sub.add_parser("key", help="按键或组合键，如 enter / esc / ctrl+s")
     p_key.add_argument("keys", help="用 + 连接，如 ctrl+s、alt+f4")
+
+    p_run = sub.add_parser("run", help="执行 YAML 步骤序列")
+    p_run.add_argument("file", help="步骤 YAML 文件路径")
+    p_run.add_argument("--config", default=None, help="config.yaml 路径")
 
     args = parser.parse_args()
 
@@ -62,12 +67,22 @@ def main() -> None:
     elif args.command == "key":
         from winagent import hand
 
-        vks = [hand.key_by_name(part) for part in args.keys.split("+")]
-        if len(vks) == 1:
-            hand.press(vks[0])
-        else:
-            hand.hotkey(*vks)
+        hand.combo(args.keys)
         print(f"KEY {args.keys}")
+    elif args.command == "run":
+        import yaml
+
+        from winagent.agent import run_steps
+        from winagent.config import load_config
+
+        data = yaml.safe_load(Path(args.file).read_text(encoding="utf-8"))
+        import winagent
+
+        repo_root = Path(winagent.__file__).resolve().parents[2]
+        trace = repo_root / "runs" / "last_trace.json"
+        result = run_steps(data.get("steps", []), load_config(args.config), trace_path=str(trace))
+        print(f"RESULT: success={result['success']} steps={result['done']} trace={trace}")
+        raise SystemExit(0 if result["success"] else 1)
     else:
         parser.print_help()
 

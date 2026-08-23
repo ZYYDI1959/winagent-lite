@@ -1,0 +1,13 @@
+# 场景：打开预置笔记文件 -> 视觉点击编辑区 -> 追加中文文本 -> Ctrl+S 静默保存
+# 无对话框路线：文件已有名字，Ctrl+S 直接保存，绕开另存为对话框的输入雷区
+# 前置 setup：C:/Users/ZY/AppData/Local/Temp/winagent_note.txt 需已存在（外部创建）
+steps:
+  - launch: notepad_note
+    focus: Notepad
+  - click:
+      target: 记事本窗口中间的白色文本编辑区域
+      max_tries: 2
+  - wait: 0.3
+  - type: " LINE-2-WinAgent 追加内容 67890"
+  - key: ctrl+s
+  - wait: 1.2

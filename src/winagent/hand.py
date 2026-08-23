@@ -46,6 +46,8 @@ _KEY_NAMES = {
     "esc": VK_ESCAPE,
     "win": VK_LWIN,
 }
+for _i in range(1, 25):  # F1-F24 (VK_F1=0x70 起)
+    _KEY_NAMES[f"f{_i}"] = 0x70 + _i - 1
 
 
 class KEYBDINPUT(ctypes.Structure):
@@ -164,3 +166,30 @@ def key_by_name(name: str) -> int:
     if len(low) == 1 and low.isdigit():
         return ord(low)
     raise ValueError(f"无法识别的按键名: {name!r}")
+
+
+def combo(keys: str) -> None:
+    """按 'enter' / 'ctrl+s' 这类字符串执行单键或组合键。"""
+    vks = [key_by_name(part) for part in keys.split("+")]
+    if len(vks) == 1:
+        press(vks[0])
+    else:
+        hotkey(*vks)
+
+
+def foreground_title() -> str:
+    """当前前台窗口标题。"""
+    hwnd = _user32.GetForegroundWindow()
+    buf = ctypes.create_unicode_buffer(256)
+    _user32.GetWindowTextW(hwnd, buf, 256)
+    return buf.value
+
+
+def wait_foreground(substr: str, timeout: float = 10.0, interval: float = 0.15) -> bool:
+    """轮询等待前台窗口标题包含 substr；替代固定 sleep，消除启动竞态。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if substr.lower() in foreground_title().lower():
+            return True
+        time.sleep(interval)
+    return False
