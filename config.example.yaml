@@ -1,0 +1,5 @@
+# 复制为 config.yaml 后按需修改；不存在的键用默认值
+ollama_url: http://localhost:11434
+vision_model: qwen2.5vl:7b   # 已验证可用：qwen2.5vl:3b / qwen2.5vl:7b / qwen3.8:27b
+max_image_width: 1600
+request_timeout: 240

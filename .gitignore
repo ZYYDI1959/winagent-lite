@@ -8,3 +8,4 @@ dist/
 runs/
 vis_*.png
 vis_*.json
+config.yaml
