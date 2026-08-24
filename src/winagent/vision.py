@@ -15,11 +15,15 @@ import re
 import socket
 from urllib.parse import urlparse
 
-import mss
 import requests
 from PIL import Image
 
 from winagent.config import Config
+
+try:  # mss>=10 推荐 MSS 类；老版本回退到工厂函数
+    from mss import MSS as _MSSFactory
+except ImportError:
+    from mss import mss as _MSSFactory
 
 _LOCATE_PROMPT = (
     "这是电脑屏幕截图，尺寸 {w}x{h}。"
@@ -40,12 +44,11 @@ def _is_local_host(hostname: str) -> bool:
         infos = socket.getaddrinfo(hostname, None)
     except socket.gaierror:
         return False
-    return all(
-        (lambda ip: ip.is_loopback or ip.is_private or ip.is_link_local)(
-            ipaddress.ip_address(info[4][0])
-        )
-        for info in infos
-    )
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if not (ip.is_loopback or ip.is_private or ip.is_link_local):
+            return False
+    return True
 
 
 def _request_url(base: str) -> str:
@@ -60,7 +63,7 @@ def _request_url(base: str) -> str:
 
 def capture_screen() -> tuple[Image.Image, dict]:
     """抓取整个虚拟屏幕（所有显示器并集），返回 (图像, mss 的 monitor 信息)。"""
-    with mss.mss() as sct:
+    with _MSSFactory() as sct:
         mon = sct.monitors[0]
         shot = sct.grab(mon)
         img = Image.frombytes("RGB", shot.size, shot.rgb)
@@ -119,6 +122,15 @@ def locate(target: str, cfg: Config | None = None) -> tuple[int, int] | None:
     x = round(rx * full.width) + mon["left"]
     y = round(ry * full.height) + mon["top"]
     return x, y
+
+
+def list_models(cfg: Config | None = None) -> list[str]:
+    """列出 Ollama 可用模型名（走与 generate 相同的受控通道）。"""
+    cfg = cfg or Config()
+    tags_url = _request_url(cfg.ollama_url).replace("/api/generate", "/api/tags")
+    resp = requests.get(tags_url, timeout=10)
+    resp.raise_for_status()
+    return [m["name"] for m in resp.json().get("models", [])]
 
 
 def ask(word: str, cfg: Config | None = None) -> bool:

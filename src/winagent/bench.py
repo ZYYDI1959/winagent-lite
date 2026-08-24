@@ -34,39 +34,39 @@ TEMP_ROOT = "C:\\Users\\ZY\\AppData\\Local\\Temp"
 def _kill_notepad() -> None:
     import subprocess
 
-    subprocess.run(["taskkill", "/F", "/IM", "notepad.exe"], capture_output=True)
+    subprocess.run(["taskkill", "/F", "/IM", "notepad.exe"], capture_output=True, check=False)
 
 
 def _kill_calc() -> None:
     import subprocess
 
-    subprocess.run(["taskkill", "/F", "/IM", "CalculatorApp.exe"], capture_output=True)
+    subprocess.run(["taskkill", "/F", "/IM", "CalculatorApp.exe"], capture_output=True, check=False)
 
 
 def _kill_taskmgr() -> None:
     import subprocess
 
-    subprocess.run(["taskkill", "/F", "/IM", "Taskmgr.exe"], capture_output=True)
+    subprocess.run(["taskkill", "/F", "/IM", "Taskmgr.exe"], capture_output=True, check=False)
 
 
 def _query_notepad() -> str:
     import subprocess
 
-    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq notepad.exe"], capture_output=True)
+    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq notepad.exe"], capture_output=True, check=False)
     return res.stdout.decode("utf-8", errors="replace")
 
 
 def _query_calc() -> str:
     import subprocess
 
-    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq CalculatorApp.exe"], capture_output=True)
+    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq CalculatorApp.exe"], capture_output=True, check=False)
     return res.stdout.decode("utf-8", errors="replace")
 
 
 def _query_taskmgr() -> str:
     import subprocess
 
-    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Taskmgr.exe"], capture_output=True)
+    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Taskmgr.exe"], capture_output=True, check=False)
     return res.stdout.decode("utf-8", errors="replace")
 
 
@@ -190,14 +190,14 @@ def run_task_once(task: dict, cfg, out_dir: Path) -> dict:
             rec["ok"] = res["success"] and rec["verify_ok"]
         else:
             rec["ok"] = res["success"]
-    except Exception as exc:  # 单次运行崩溃不拖垮整个 bench
+    except Exception as exc:  # noqa: BLE001 单次运行崩溃不拖垮整个 bench（设计要求）
         rec["reason"] += f" exception={type(exc).__name__}: {exc}"
     finally:
         rec["duration"] = round(time.monotonic() - t0, 1)
         for verb in task.get("teardown", []):
             try:
                 _do_verb(verb)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 teardown 失败不影响记录
                 rec["reason"] += f" teardown_err={exc}"
     return rec
 

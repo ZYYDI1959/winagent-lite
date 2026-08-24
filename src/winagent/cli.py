@@ -43,6 +43,9 @@ def main() -> None:
     p_plan.add_argument("--model", default=None, help="规划模型，默认 qwen3-8b-fast")
     p_plan.add_argument("--execute", action="store_true", help="规划后立即执行（会动键鼠）")
 
+    p_doctor = sub.add_parser("doctor", help="环境自检（被动检查，不动键鼠）")
+    p_doctor.add_argument("--config", default=None, help="config.yaml 路径")
+
     args = parser.parse_args()
 
     if args.command == "version":
@@ -98,6 +101,11 @@ def main() -> None:
         ids = None if args.tasks == "all" else [t.strip() for t in args.tasks.split(",") if t.strip()]
         report = run_bench(ids, runs_override=args.runs)
         print(f"BENCH-DONE {report}")
+    elif args.command == "doctor":
+        from winagent import doctor
+        from winagent.config import load_config
+
+        raise SystemExit(doctor.main(load_config(args.config)))
     elif args.command == "plan":
         import json as _json
 

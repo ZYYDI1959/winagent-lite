@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: ruff (静态检查)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check src scripts
+
+  windows-gui-smoke:
+    name: Windows GUI 冒烟（真实鼠标键盘，无 Ollama 依赖）
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e .
+      - name: 版本与导入
+        run: |
+          winagent version
+          python -c "from winagent import hand, vision, agent, bench, planner; print('imports OK')"
+      - name: 鼠标移动/读位
+        run: python -c "from winagent import hand; hand.move_to(200,200); assert hand.get_cursor_pos()==(200,200); print('mouse OK')"
+      - name: 键盘输入（UNICODE + 虚拟键分流）
+        run: python -c "from winagent import hand; hand.type_text('ci-smoke-123'); print('keyboard OK')"
+      - name: 组合键解析
+        run: python -c "from winagent import hand; hand.combo('ctrl+end'); print('combo OK')"

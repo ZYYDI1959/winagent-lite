@@ -167,8 +167,12 @@ def _execute_steps(steps: list[dict], cfg: Config | None = None) -> dict:
             time.sleep(float(step["wait"]))
             record("wait", detail=step["wait"])
         elif "type" in step:
-            hand.type_text(str(step["type"]))
-            record("type", detail=str(step["type"])[:40])
+            spec = step["type"]
+            if isinstance(spec, dict):  # {text: ..., mode: unicode|vk|auto}
+                hand.type_text(str(spec["text"]), mode=str(spec.get("mode", "auto")))
+            else:
+                hand.type_text(str(spec))
+            record("type", detail=str(spec if isinstance(spec, str) else spec.get("text"))[:40])
         elif "key" in step:
             hand.combo(str(step["key"]))
             fok = _focus_guard(step)

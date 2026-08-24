@@ -15,7 +15,7 @@ _user32 = ctypes.windll.user32
 
 try:
     _user32.SetProcessDPIAware()  # 多显示器/缩放下坐标一致性
-except Exception:
+except Exception:  # noqa: BLE001, S110 旧系统无此 API 时降级，无需处理
     pass
 
 MOUSEEVENTF_LEFTDOWN = 0x0002

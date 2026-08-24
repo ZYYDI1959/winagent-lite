@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "winagent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local vision-driven Windows GUI agent with a reproducible benchmark"
 readme = "README.md"
 license = { text = "MIT" }
@@ -22,3 +22,7 @@ winagent-mcp = "winagent.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

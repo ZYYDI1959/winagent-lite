@@ -32,7 +32,7 @@ def _validate(steps: list) -> list[dict]:
 
     for i, s in enumerate(steps):
         if not isinstance(s, dict):
-            raise ValueError(f"步骤{i}不是对象: {s!r}")
+            raise TypeError(f"步骤{i}不是对象: {s!r}")
         mains = [k for k in s if k in _MAIN_KEYS]
         if len(mains) != 1:
             raise ValueError(f"步骤{i}主键数量不为1: {s!r}")
@@ -51,7 +51,7 @@ def plan(goal: str, model: str | None = None, cfg: Config | None = None) -> list
     model = model or getattr(cfg, "planner_model", "qwen3-8b-fast")
     raw = generate_text(_PLAN_PROMPT.format(goal=goal), model=model,
                         base_url=cfg.ollama_url, timeout=cfg.request_timeout)
-    m = re.search(r"\[.*\]", raw, re.S)
+    m = re.search(r"\[.*\]", raw, re.DOTALL)
     if not m:
         raise ValueError(f"planner 未输出 JSON 数组: {raw[:150]!r}")
     return _validate(json.loads(m.group(0)))

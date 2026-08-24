@@ -87,7 +87,7 @@ def _handle(name: str, args: dict) -> str:
     cfg = load_config()
     if name == "look":
         pos = vision.locate(str(args["target"]), cfg)
-        return f"NOT_FOUND" if pos is None else f"FOUND {pos[0]},{pos[1]}"
+        return "NOT_FOUND" if pos is None else f"FOUND {pos[0]},{pos[1]}"
     if name == "click":
         hand.click(int(args["x"]), int(args["y"]),
                    double=bool(args.get("double", False)), right=bool(args.get("right", False)))
@@ -104,8 +104,9 @@ def _handle(name: str, args: dict) -> str:
                            wait_s=float(args.get("wait_s", 1.5)))
         return json.dumps(result, ensure_ascii=False)[:2000]
     if name == "run_scenario":
-        import yaml as _yaml
         from pathlib import Path
+
+        import yaml as _yaml
 
         data = _yaml.safe_load(Path(str(args["path"])).read_text(encoding="utf-8"))
         buf = io.StringIO()  # 步骤日志不能混进 stdio 协议流
@@ -143,7 +144,7 @@ def main() -> None:
                 text = _handle(req["params"]["name"], req["params"].get("arguments", {}))
                 resp = {"jsonrpc": "2.0", "id": rid,
                         "result": {"content": [{"type": "text", "text": text}]}}
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 协议边界：错误必须转成文本响应而非崩掉 server
                 resp = {"jsonrpc": "2.0", "id": rid,
                         "result": {"content": [{"type": "text", "text": f"ERROR: {exc}"}],
                                    "isError": True}}

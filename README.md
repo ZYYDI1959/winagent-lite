@@ -1,6 +1,7 @@
 # WinAgent-Lite
 
 ![demo](docs/demo.gif)
+[![CI](https://github.com/ZYYDI1959/winagent-lite/actions/workflows/ci.yml/badge.svg)](https://github.com/ZYYDI1959/winagent-lite/actions/workflows/ci.yml)
 
 本地视觉模型驱动的 Windows GUI Agent，附带可复现评测集——让 GUI 自动化从"能演示"变成"能度量"。
 
@@ -31,12 +32,15 @@ python -m venv .venv && .venv/Scripts/pip install -e .
 # 需要 Ollama 本地跑着视觉模型 (默认 qwen2.5vl:7b)
 cp config.example.yaml config.yaml   # 按需改模型名
 
+winagent doctor                          # 环境自检：一条命令诊断运行条件
 winagent look "任务栏右下角的时钟时间数字"   # 眼睛: FOUND x,y
 winagent click 1824 1056                 # 手: 真实点击
 winagent run scenarios/notepad_save.yaml # 闭环: YAML 步骤序列
 winagent bench                           # 评测: 全任务成功率报告
 winagent plan "打开记事本输入你好并保存"     # 规划: 目标 -> 步骤 JSON
 ```
+
+更新日志见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 评测设计 / Benchmark Design
 
