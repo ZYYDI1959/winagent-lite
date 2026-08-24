@@ -90,4 +90,4 @@ jobs:
       - name: MCP 协议一致性测试
         run: xvfb-run -a python -u scripts/test_mcp_protocol.py
       - name: Linux 真实运行套件（xterm + XTest + 截屏闭环）
-        run: xvfb-run -a python -u scripts/test_linux_gui.py
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -u scripts/test_linux_gui.py
