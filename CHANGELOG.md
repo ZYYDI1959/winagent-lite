@@ -4,8 +4,16 @@
 
 ### Added
 
-- **Linux 真实运行套件** `scripts/test_linux_gui.py`：xvfb 下启动真实 X 应用（xterm），XTest 真实键盘输入 → mss 截屏 → 像素差分验证屏幕变化（无 Ollama 依赖，CI Linux job 执行）
+- **Linux 真实运行套件** `scripts/test_linux_gui.py`：xvfb 下启动真实 X 应用（xmessage）+ XTest 真实点击/回车 + XQueryTree 窗口生命周期确定性验证（不依赖像素与 Ollama）
+- **macOS 真实输入冒烟** `scripts/test_macos_input.py` + CI job（macos-15 真机跑 Quartz CGEvent）
 - CI Linux job 升级：真实 X 应用 + 真实输入的端到端闭环验证
+
+### Fixed（全部由实弹测试发现）
+
+- xvfb 下 xterm 缺字体（xfonts-base）、8-bit 深度 BadWindow（24-bit 屏幕）、XIM 探测崩溃、pty 依赖 → 稳定性套件改为 xmessage（零依赖）
+- **x11 后端 XQueryTree ctypes 原型缺参数 → 段错误**（补全 6 参数声明）
+- **macOS 后端 CGPoint 按值/按引用 ABI 错误 → arm64 段错误**（CGWarpMouseCursorPosition / CGEventCreateMouseEvent / CGEventGetLocation 全部改按值 + 完整原型）
+- 测试脚本 UTF-8 输出（Windows cp1252 控制台，两个测试各踩一次）
 
 ## v0.5.0 - 2026-08-24
 
