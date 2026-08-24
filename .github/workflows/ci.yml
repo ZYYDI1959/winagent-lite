@@ -73,7 +73,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: sudo apt-get update && sudo apt-get install -y libxtst6 xvfb
+      - run: sudo apt-get update && sudo apt-get install -y libxtst6 xvfb xterm
       - run: pip install -e .
       - name: X11 后端真实输入（xvfb 虚拟显示下）
         run: |
@@ -89,3 +89,5 @@ jobs:
           "
       - name: MCP 协议一致性测试
         run: xvfb-run -a python -u scripts/test_mcp_protocol.py
+      - name: Linux 真实运行套件（xterm + XTest + 截屏闭环）
+        run: xvfb-run -a python -u scripts/test_linux_gui.py

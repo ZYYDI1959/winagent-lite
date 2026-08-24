@@ -23,7 +23,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 _PROTOCOL_VERSION = "2024-11-05"
-_SERVER_INFO = {"name": "winagent", "version": "0.5.0"}
+_SERVER_INFO = {"name": "winagent", "version": "0.5.1"}
 
 _TOOLS = [
     {

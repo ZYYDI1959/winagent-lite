@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "winagent"
-version = "0.5.0"
+version = "0.5.1"
 description = "Local vision-driven GUI agent + MCP plugin (eyes & hands for any AI platform)"
 readme = "README.md"
 license = { text = "MIT" }

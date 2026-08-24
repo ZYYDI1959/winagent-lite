@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.1 - 2026-08-24
+
+### Added
+
+- **Linux 真实运行套件** `scripts/test_linux_gui.py`：xvfb 下启动真实 X 应用（xterm），XTest 真实键盘输入 → mss 截屏 → 像素差分验证屏幕变化（无 Ollama 依赖，CI Linux job 执行）
+- CI Linux job 升级：真实 X 应用 + 真实输入的端到端闭环验证
+
 ## v0.5.0 - 2026-08-24
 
 ### Added
