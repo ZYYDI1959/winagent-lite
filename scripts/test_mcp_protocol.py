@@ -49,6 +49,9 @@ def main() -> int:
 
         # 3) tools/list：9 个工具、schema 含必填字段
         r = send(proc, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+        if "result" not in r:
+            stderr = proc.stderr.read() if proc.stderr else ""
+            raise AssertionError(f"tools/list 响应异常: {r}\nserver stderr:\n{stderr[:2000]}")
         tools = {t["name"]: t for t in r["result"]["tools"]}
         assert len(tools) == 9, tools.keys()
         assert tools["look"]["inputSchema"]["required"] == ["target"]
