@@ -1,13 +1,14 @@
-"""bench runner：评测任务执行器。
+"""bench runner：评测任务执行器（v0.3 跨平台版）。
 
 任务 YAML 放在 bench/tasks/*.yaml，schema:
   id / description / model(可选) / runs(默认5) / verify_level(A|B)
+  platforms: [win32|linux|darwin|...]  可选；缺省全部平台
   setup:   [动词列表]   每次运行前重置环境
   steps:   [步骤列表]   与 run_steps 相同的语法
   verify:  {动词: 参数} 成败判定（A=确定性，B=VLM 看图）
   teardown:[动词列表]   每次运行后清理（无论成败）
 
-动词（全部白名单/受控，进程操作为字面量命令函数，杜绝任意命令执行）:
+动词（全部白名单/受控，进程操作用 psutil 跨平台实现）:
   kill_process: notepad|calc|taskmgr      create_file: {path, content}
   delete_file: <temp 下路径>              press: <键名如 esc>
 验证动词:
@@ -19,8 +20,11 @@
 """
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
+
+import psutil
 
 from winagent import agent, hand, vision
 from winagent.config import load_config
@@ -31,61 +35,52 @@ OUT_ROOT = REPO_ROOT / "runs" / "bench"
 TEMP_ROOT = "C:\\Users\\ZY\\AppData\\Local\\Temp"
 
 
-def _kill_notepad() -> None:
-    import subprocess
+def _kill_by_name(image: str) -> None:
+    """按镜像名杀进程（psutil 跨平台；白名单名字在调用方）。"""
+    for p in psutil.process_iter(attrs=["name"]):
+        try:
+            if p.info["name"] and p.info["name"].lower() == image.lower():
+                p.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
 
-    subprocess.run(["taskkill", "/F", "/IM", "notepad.exe"], capture_output=True, check=False)
+
+def _query_by_name(image: str) -> str:
+    """进程检查：存在返回镜像名串（兼容旧 marker 语义），否则空串。"""
+    for p in psutil.process_iter(attrs=["name"]):
+        try:
+            if p.info["name"] and p.info["name"].lower() == image.lower():
+                return image
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return ""
+
+
+def _kill_notepad() -> None:
+    _kill_by_name("notepad.exe")
 
 
 def _kill_calc() -> None:
-    import subprocess
-
-    subprocess.run(["taskkill", "/F", "/IM", "CalculatorApp.exe"], capture_output=True, check=False)
+    _kill_by_name("CalculatorApp.exe")
 
 
 def _kill_taskmgr() -> None:
-    import subprocess
-
-    subprocess.run(["taskkill", "/F", "/IM", "Taskmgr.exe"], capture_output=True, check=False)
+    _kill_by_name("Taskmgr.exe")
 
 
 def _query_notepad() -> str:
-    import subprocess
-
-    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq notepad.exe"], capture_output=True, check=False)
-    return res.stdout.decode("utf-8", errors="replace")
+    return _query_by_name("notepad.exe")
 
 
 def _query_calc() -> str:
-    import subprocess
-
-    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq CalculatorApp.exe"], capture_output=True, check=False)
-    return res.stdout.decode("utf-8", errors="replace")
+    return _query_by_name("CalculatorApp.exe")
 
 
 def _query_taskmgr() -> str:
-    import subprocess
-
-    res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Taskmgr.exe"], capture_output=True, check=False)
-    return res.stdout.decode("utf-8", errors="replace")
+    return _query_by_name("Taskmgr.exe")
 
 
-def _clear_notepad_session() -> None:
-    """删除 Win11 记事本的会话标签记录，防止启动时恢复旧未保存标签页。
-
-    根因：强杀/异常退出后 TabState 残留，下次启动恢复旧标签，
-    新输入打进恢复的未保存文档，Ctrl+S 变成另存为对话框。
-    """
-    tab_state = Path("C:/Users/ZY/AppData/Local/Packages/Microsoft.WindowsNotepad_8wekyb3d8bbwe/LocalState/TabState")
-    if tab_state.exists():
-        for f in tab_state.iterdir():
-            try:
-                f.unlink()
-            except OSError:
-                pass
-
-
-# 进程操作白名单：名字 -> 字面量命令函数，名字只用于选择
+# 进程操作白名单：名字 -> 函数，名字只用于选择
 KILLERS = {
     "notepad": _kill_notepad,
     "calc": _kill_calc,
@@ -120,8 +115,6 @@ def _do_verb(verb) -> None:
             if fn is None:
                 raise ValueError(f"kill_process 白名单外: {val}")
             fn()
-        elif key == "clear_notepad_session":
-            _clear_notepad_session()
         elif key == "create_file":
             path = _safe_temp_path(val["path"])
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -163,9 +156,13 @@ def _do_verify(spec: dict, cfg) -> bool:
 def load_tasks(ids: list[str] | None = None) -> list[dict]:
     import yaml
 
+    plat = sys.platform
     tasks = []
     for f in sorted(BENCH_DIR.glob("*.yaml")):
         data = yaml.safe_load(f.read_text(encoding="utf-8"))
+        platforms = data.get("platforms")
+        if platforms and plat not in platforms:
+            continue  # 非本平台任务直接跳过
         if ids is None or data["id"] in ids:
             tasks.append(data)
     return tasks
@@ -182,7 +179,7 @@ def run_task_once(task: dict, cfg, out_dir: Path) -> dict:
         res = agent.run_steps(task["steps"], cfg, trace_path=str(out_dir / "trace.json"))
         rec["steps_ok"] = res["success"]
         rec["reason"] = f"failed_step={res['failed_step']}" if not res["success"] else "steps ok"
-        img, _ = vision.capture_screen()
+        img, _ = vision.capture_screen(cfg)
         vision.downscale(img, 1600).save(out_dir / "final.png")
         if "verify" in task:
             rec["verify_ok"] = _do_verify(task["verify"], cfg)

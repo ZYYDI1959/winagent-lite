@@ -2,6 +2,7 @@ id: notepad_chinese_heavy
 description: 视觉点击编辑区→长中英数字混合输入→保存（打字保真度压测）
 model: qwen2.5vl:7b
 runs: 5
+platforms: [win32]
 verify_level: A
 setup:
   - kill_process: notepad

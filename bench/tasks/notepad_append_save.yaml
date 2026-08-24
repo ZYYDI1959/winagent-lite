@@ -2,6 +2,7 @@ id: notepad_append_save
 description: 视觉点击编辑区→追加中文→Ctrl+S静默保存
 model: qwen2.5vl:7b
 runs: 5
+platforms: [win32]
 verify_level: A
 setup:
   - kill_process: notepad

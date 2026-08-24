@@ -1,6 +1,7 @@
 """配置：默认值 + 可选 config.yaml 覆盖（不存在的键继续用默认值）。"""
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, fields
 from pathlib import Path
 
@@ -11,8 +12,19 @@ import yaml
 class Config:
     ollama_url: str = "http://localhost:11434"
     vision_model: str = "qwen2.5vl:7b"
-    max_image_width: int = 1600
+    # 性能与资源开销
+    max_image_width: int = 1600          # 截图降采样宽度：越小传输越快、模型处理越快
+    image_format: str = "png"            # png | jpeg（jpeg 体积小约 10 倍，UI 截图无损观感）
+    capture_monitor: int = 0             # 0=全部显示器并集；1..n=仅指定主/次显示器（省抓屏开销）
+    # 模型常驻请在 Ollama 服务器端设 OLLAMA_KEEP_ALIVE（如 "10m"），
+    # 全局生效且无需每请求传参（经安全审查后不再走请求体注入）。
+    typing_interval_ms: int = 10         # 打字间隔：越大越稳，越小越快（IME 环境建议 >=10）
     request_timeout: int = 240
+
+    def __post_init__(self) -> None:
+        if self.image_format not in ("png", "jpeg"):
+            self.image_format = "png"
+        self.typing_interval_ms = max(int(self.typing_interval_ms), 1)
 
 
 def load_config(path: str | None = None) -> Config:
@@ -25,3 +37,15 @@ def load_config(path: str | None = None) -> Config:
             if key in names:
                 setattr(cfg, key, value)
     return cfg
+
+
+def is_windows() -> bool:
+    return sys.platform.startswith("win")
+
+
+def is_linux() -> bool:
+    return sys.platform.startswith("linux")
+
+
+def is_macos() -> bool:
+    return sys.platform == "darwin"

@@ -1,6 +1,7 @@
 id: calculator_12x12
 description: 启动计算器→键入12*12=→VLM确认显示144（B级验证）
 runs: 5
+platforms: [win32]
 verify_level: B
 setup:
   - kill_process: calc

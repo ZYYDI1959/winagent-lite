@@ -1,6 +1,7 @@
 id: taskmgr_open
 description: 启动任务管理器并确认进程存在（纯启动+进程验证，无视觉）
 runs: 5
+platforms: [win32]
 verify_level: A
 setup:
   - kill_process: taskmgr

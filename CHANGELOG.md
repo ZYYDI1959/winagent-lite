@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.0 - 2026-08-24
+
+### Added
+
+- **跨平台输入后端**：hand 拆为平台分发器——win32（user32/SendInput，全功能）/ x11（XTest，ASCII 直输）/ macos（Quartz CGEvent，待实机验证），API 与 VK 常量三端一致
+- **老 Windows 兼容**：requires-python >=3.10，CI 覆盖 py3.10/3.13
+- **CI 三平台矩阵**：Windows(3.10/3.13) 真实 GUI 冒烟 + Ubuntu xvfb 下 XTest 后端真实输入测试 + macOS 导入冒烟
+- 性能配置：`image_format: png|jpeg`（jpeg 请求体小约 10 倍）、`capture_monitor`（单屏省抓屏）、`max_image_width` 可降、`typing_interval_ms` 可调
+- 模型常驻：改用服务器端 `OLLAMA_KEEP_ALIVE` 环境变量（全局生效，不再每请求传参）
+- bench 进程操作改 psutil（跨平台），任务支持 `platforms:` 门控（非本平台任务自动跳过）
+
+### Changed
+
+- config 载入即校验（image_format/typing_interval 非法值兜底）
+- doctor 新增输入后端检测项
+- 性能基线（实测）：jpeg 编码体积约为 png 的 1/10，识别无感
+
 ## v0.2.0 - 2026-08-24
 
 ### Added

@@ -61,10 +61,22 @@ def _request_url(base: str) -> str:
     return base.rstrip("/") + "/api/generate"
 
 
-def capture_screen() -> tuple[Image.Image, dict]:
-    """抓取整个虚拟屏幕（所有显示器并集），返回 (图像, mss 的 monitor 信息)。"""
+def _ollama_tags_url(cfg: Config) -> str:
+    """经同一校验通道得到模型列表地址（doctor/list_models 用）。"""
+    return _request_url(cfg.ollama_url).replace("/api/generate", "/api/tags")
+
+
+def capture_screen(cfg: Config | None = None) -> tuple[Image.Image, dict]:
+    """抓取屏幕，返回 (图像, mss 的 monitor 信息)。
+
+    capture_monitor: 0=所有显示器并集；1..n=仅该显示器（老机器/单屏场景省抓屏开销）。
+    """
+    cfg = cfg or Config()
     with _MSSFactory() as sct:
-        mon = sct.monitors[0]
+        idx = max(0, int(cfg.capture_monitor))
+        monitors = sct.monitors
+        idx = min(idx, len(monitors) - 1)
+        mon = monitors[idx]
         shot = sct.grab(mon)
         img = Image.frombytes("RGB", shot.size, shot.rgb)
         return img, mon
@@ -78,17 +90,21 @@ def downscale(img: Image.Image, max_width: int) -> Image.Image:
     return img.resize((max_width, round(img.height * ratio)))
 
 
-def _to_b64(img: Image.Image) -> str:
+def _to_b64(img: Image.Image, fmt: str = "png") -> str:
+    """编码为 base64。jpeg 体积约为 png 的 1/10，UI 截图无可见质量损失。"""
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    if fmt == "jpeg":
+        img.convert("RGB").save(buf, format="JPEG", quality=85)
+    else:
+        img.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode()
 
 
 def _generate(prompt: str, image: Image.Image, cfg: Config) -> str:
-    payload = {
+    payload: dict = {
         "model": cfg.vision_model,
         "prompt": prompt,
-        "images": [_to_b64(image)],
+        "images": [_to_b64(image, cfg.image_format)],
         "stream": False,
     }
     url = _request_url(cfg.ollama_url)
@@ -104,7 +120,7 @@ def locate(target: str, cfg: Config | None = None) -> tuple[int, int] | None:
     与降采样比例无关（相对坐标天然免疫缩放）。
     """
     cfg = cfg or Config()
-    full, mon = capture_screen()
+    full, mon = capture_screen(cfg)
     small = downscale(full, cfg.max_image_width)
     prompt = _LOCATE_PROMPT.format(w=small.width, h=small.height, target=target)
     answer = _generate(prompt, small, cfg)
@@ -127,8 +143,7 @@ def locate(target: str, cfg: Config | None = None) -> tuple[int, int] | None:
 def list_models(cfg: Config | None = None) -> list[str]:
     """列出 Ollama 可用模型名（走与 generate 相同的受控通道）。"""
     cfg = cfg or Config()
-    tags_url = _request_url(cfg.ollama_url).replace("/api/generate", "/api/tags")
-    resp = requests.get(tags_url, timeout=10)
+    resp = requests.get(_ollama_tags_url(cfg), timeout=10)
     resp.raise_for_status()
     return [m["name"] for m in resp.json().get("models", [])]
 
@@ -136,7 +151,7 @@ def list_models(cfg: Config | None = None) -> list[str]:
 def ask(word: str, cfg: Config | None = None) -> bool:
     """问模型当前屏幕上是否能看到某词（供闭环验证用，移植自 auto_gui 的 Vision-Ask）。"""
     cfg = cfg or Config()
-    img, _ = capture_screen()
+    img, _ = capture_screen(cfg)
     small = downscale(img, cfg.max_image_width)
     answer = _generate(_ASK_PROMPT.format(word=word), small, cfg)
     return "YES" in answer.upper()

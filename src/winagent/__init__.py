@@ -1,3 +1,3 @@
-"""WinAgent-Lite: local vision-driven Windows GUI agent with a benchmark."""
+"""WinAgent-Lite: local vision-driven GUI agent with a benchmark."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

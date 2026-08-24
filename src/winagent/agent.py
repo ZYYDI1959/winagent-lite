@@ -169,9 +169,10 @@ def _execute_steps(steps: list[dict], cfg: Config | None = None) -> dict:
         elif "type" in step:
             spec = step["type"]
             if isinstance(spec, dict):  # {text: ..., mode: unicode|vk|auto}
-                hand.type_text(str(spec["text"]), mode=str(spec.get("mode", "auto")))
+                hand.type_text(str(spec["text"]), mode=str(spec.get("mode", "auto")),
+                               interval_ms=cfg.typing_interval_ms)
             else:
-                hand.type_text(str(spec))
+                hand.type_text(str(spec), interval_ms=cfg.typing_interval_ms)
             record("type", detail=str(spec if isinstance(spec, str) else spec.get("text"))[:40])
         elif "key" in step:
             hand.combo(str(step["key"]))

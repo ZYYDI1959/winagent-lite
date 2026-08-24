@@ -30,7 +30,7 @@ mcp_server.py 生态: 把眼/手/闭环暴露为 6 个 MCP 工具, 任意 harnes
 git clone <repo> && cd winagent-lite
 python -m venv .venv && .venv/Scripts/pip install -e .
 # 需要 Ollama 本地跑着视觉模型 (默认 qwen2.5vl:7b)
-cp config.example.yaml config.yaml   # 按需改模型名
+cp config.example.yaml config.yaml   # 按需改模型名与性能参数
 
 winagent doctor                          # 环境自检：一条命令诊断运行条件
 winagent look "任务栏右下角的时钟时间数字"   # 眼睛: FOUND x,y
@@ -41,6 +41,18 @@ winagent plan "打开记事本输入你好并保存"     # 规划: 目标 -> 步
 ```
 
 更新日志见 [CHANGELOG.md](CHANGELOG.md)。
+
+## 平台支持 / Platforms
+
+| 平台 | 状态 | 说明 |
+|------|------|------|
+| Windows 10/11（老版本优先 py3.10） | ✅ 完整 | user32/SendInput，中文直输；评测基准均在此验证 |
+| Linux（X11） | ✅ 可用 | XTest 后端（xvfb 下 CI 实测）；ASCII 直输，中文需剪贴板方案 |
+| macOS | 🚧 代码就绪 | Quartz CGEvent 后端已实现，待实机验证后转正 |
+
+跨平台架构：眼睛（mss+Ollama）与大脑（planner/MCP）本就跨平台，
+"手"按平台自动选择后端（`winagent doctor` 会显示当前后端）。
+非本平台的评测任务自动跳过（任务 YAML 的 `platforms:` 门控）。
 
 ## 评测设计 / Benchmark Design
 

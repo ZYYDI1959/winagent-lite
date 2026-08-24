@@ -17,8 +17,36 @@ jobs:
       - run: pip install ruff
       - run: ruff check src scripts
 
+  test-matrix:
+    name: "${{ matrix.os }} / py${{ matrix.python }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            python: "3.10"
+          - os: windows-latest
+            python: "3.13"
+          - os: ubuntu-latest
+            python: "3.10"
+          - os: macos-latest
+            python: "3.12"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e .
+      - name: 版本与导入（全平台）
+        run: |
+          winagent version
+          python -c "from winagent import hand, vision, agent, bench, planner, doctor, mcp_server; import sys; print('imports OK on', sys.platform)"
+      - name: 环境自检（不依赖 Ollama 的项）
+        run: python -c "from winagent.doctor import run_checks; rs = run_checks(); print('checks:', len(rs))"
+
   windows-gui-smoke:
-    name: Windows GUI 冒烟（真实鼠标键盘，无 Ollama 依赖）
+    name: Windows GUI 冒烟（真实鼠标键盘）
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,13 +54,32 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -e .
-      - name: 版本与导入
-        run: |
-          winagent version
-          python -c "from winagent import hand, vision, agent, bench, planner; print('imports OK')"
       - name: 鼠标移动/读位
-        run: python -c "from winagent import hand; hand.move_to(200,200); assert hand.get_cursor_pos()==(200,200); print('mouse OK')"
+        run: python -c "from winagent import hand; assert hand.BACKEND=='win32'; hand.move_to(200,200); assert hand.get_cursor_pos()==(200,200); print('mouse OK')"
       - name: 键盘输入（UNICODE + 虚拟键分流）
         run: python -c "from winagent import hand; hand.type_text('ci-smoke-123'); print('keyboard OK')"
       - name: 组合键解析
         run: python -c "from winagent import hand; hand.combo('ctrl+end'); print('combo OK')"
+
+  linux-x11-smoke:
+    name: Linux X11 后端冒烟（XTest @ xvfb）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y libxtst6 xvfb
+      - run: pip install -e .
+      - name: X11 后端真实输入（xvfb 虚拟显示下）
+        run: |
+          xvfb-run -a python -c "
+          from winagent import hand
+          assert hand.BACKEND == 'x11', hand.BACKEND
+          hand.move_to(150, 150)
+          x, y = hand.get_cursor_pos()
+          assert (x, y) == (150, 150), (x, y)
+          hand.type_text('ci-smoke-123')
+          hand.combo('ctrl+end')
+          print('x11 backend OK @', x, y)
+          "

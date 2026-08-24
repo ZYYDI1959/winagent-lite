@@ -15,6 +15,13 @@ def run_checks(cfg: Config | None = None) -> list[tuple[bool, str]]:
     checks.append((sys.version_info >= (3, 10), f"Python {sys.version.split()[0]}（需 >=3.10）"))
 
     try:
+        from winagent import hand
+
+        checks.append((True, f"输入后端: {hand.BACKEND}（本平台自动选择）"))
+    except Exception as exc:  # noqa: BLE001 自检要求吞掉一切异常转为 FAIL 行
+        checks.append((False, f"输入后端加载失败: {exc}"))
+
+    try:
         from winagent import vision
 
         img, mon = vision.capture_screen()

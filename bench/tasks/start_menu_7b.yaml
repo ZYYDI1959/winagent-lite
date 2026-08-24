@@ -2,6 +2,7 @@ id: start_menu_7b
 description: 视觉定位开始按钮（7b 已知弱项，量化小目标能力边界）
 model: qwen2.5vl:7b
 runs: 3
+platforms: [win32]
 verify_level: A
 steps:
   - click:

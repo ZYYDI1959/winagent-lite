@@ -2,6 +2,7 @@ id: clock_flyout_3b
 description: 同 clock_flyout_7b 但换 3b 眼睛（模型对比实验）
 model: qwen2.5vl:3b
 runs: 5
+platforms: [win32]
 verify_level: A
 steps:
   - click:

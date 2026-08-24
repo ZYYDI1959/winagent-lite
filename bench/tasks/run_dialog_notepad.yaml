@@ -1,6 +1,7 @@
 id: run_dialog_notepad
 description: Win+R运行框输入notepad回车→确认进程（运行框键盘链路，对话框行为对照）
 runs: 5
+platforms: [win32]
 verify_level: A
 setup:
   - kill_process: notepad

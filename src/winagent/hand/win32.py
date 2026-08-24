@@ -1,8 +1,8 @@
-"""手：真实鼠标与键盘输入（user32，isTrusted=true 级系统事件）。
+"""win32 后端：user32 + SendInput 真实输入（isTrusted=true 级系统事件）。
 
 鼠标部分移植自 tools/click.ps1（SetCursorPos + mouse_event）；
 键盘部分为本项目新增：SendInput + KEYEVENTF_UNICODE，按字符直输，
-天然支持中文等任意 Unicode，不经过输入法。
+天然支持中文等任意 Unicode，不经过输入法（老 Windows 10 同样适用）。
 坐标一律为虚拟屏幕物理像素。
 """
 from __future__ import annotations
@@ -160,7 +160,7 @@ def _type_char_vk(ch: str, hold_ms: int = 10) -> None:
 def type_text(text: str, interval_ms: int = 10, mode: str = "auto") -> None:
     """向当前焦点窗口逐字符输入。
 
-    实测结论（详见 docs/baseline_v0.1.md）：
+    实测结论（详见 docs/baseline_v0.2.md）：
     - UNICODE 直输绕过中文 IME，字母/数字/中文都正确，但 WinUI 计算器不认运算符；
     - 虚拟键路径会被中文 IME 劫持（大小写漂移），但运算符必须走它。
     auto 模式：字母/数字/空格/非ASCII 走 UNICODE，仅 ASCII 标点运算符走虚拟键。

@@ -2,6 +2,7 @@ id: clock_flyout_7b
 description: 视觉定位任务栏时钟→容差点击→像素差分验证弹窗
 model: qwen2.5vl:7b
 runs: 5
+platforms: [win32]
 verify_level: A
 steps:
   - click:
