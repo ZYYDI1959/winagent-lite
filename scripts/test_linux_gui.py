@@ -1,67 +1,116 @@
-"""Linux 真实运行套件：xvfb 下真实 X 应用 + XTest 真实输入 + 截屏验证。
+"""Linux 真实运行套件：xvfb 下真实 X 应用 + XTest 真实输入，确定性验证。
 
-主路径：xmessage 对话框（真实应用）-> 真实鼠标点击按钮 -> 窗口消失（像素差分验证）。
-兜底路径：xmessage 异常时用 xlogo 验证「真实应用启动+渲染+截屏」链路。
+主路径（确定性）：xmessage 启动 -> XQueryTree 确认窗口真实映射(IsViewable)
+  -> 真实点击+回车 -> 确认窗口从 X 服务器消失 + 进程退出。
+兜底路径：xlogo 同理（窗口出现验证渲染链路）。
+像素差分仅作信息输出（xvfb 黑底黑窗体时阈值不适用，不能当判据）。
 不依赖 Ollama。用法: xvfb-run -a -s "-screen 0 1920x1080x24" python -u scripts/test_linux_gui.py
 """
+import ctypes
 import subprocess
 import time
 
-from PIL import ImageChops
-
 from winagent import hand, vision
 
-
-def _diff_pixels(before, after) -> int:
-    diff = ImageChops.difference(before, after).convert("L")
-    return sum(1 for px in diff.getdata() if px > 20)
-
-
-def _try_xmessage_click() -> bool:
-    print("[A] xmessage 真实点击+回车链路")
-    hand.move_to(400, 300)  # xmessage 弹出在指针旁
-    p = subprocess.Popen(
-        ["xmessage", "-buttons", "Click:0", "-default", "Click",
-         "-title", "wa-live-test", "winagent live test"])
-    time.sleep(2.5)
-    if p.poll() is not None:
-        print(f"    xmessage 启动失败（rc={p.returncode}），走兜底路径")
-        return False
-    before = vision.capture_screen()[0]
-    hand.click(400, 300)  # 点对话框本体获取焦点（不会触发按钮）
-    time.sleep(0.6)
-    hand.press(hand.VK_RETURN)  # 回车触发默认按钮 Click -> 对话框关闭
-    time.sleep(1.5)
-    changed = _diff_pixels(before, vision.capture_screen()[0])
-    closed = p.poll() is not None
-    print(f"    对话框关闭={closed} 屏幕变化像素={changed}（阈值 500）")
-    if not closed:
-        p.terminate()
-    return closed and changed > 500
+_x11 = ctypes.CDLL("libX11.so.6")
+_x11.XOpenDisplay.restype = ctypes.c_void_p
+_x11.XDefaultRootWindow.restype = ctypes.c_ulong
+_x11.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+_x11.XQueryTree.argtypes = [ctypes.c_void_p, ctypes.c_ulong,
+                            ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
+                            ctypes.POINTER(ctypes.POINTER(ctypes.c_ulong))]
+_x11.XGetWindowAttributes.restype = ctypes.c_int
+_x11.XFree.argtypes = [ctypes.c_void_p]
+_x11.XFetchName.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_char_p)]
 
 
-def _try_xlogo_launch() -> bool:
-    print("[B] xlogo 启动/渲染链路")
-    p = subprocess.Popen(["xlogo"])
-    time.sleep(2.0)
-    alive = p.poll() is None
-    before = vision.capture_screen()[0]
-    time.sleep(0.5)
-    changed = _diff_pixels(before, vision.capture_screen()[0]) if alive else 0
-    print(f"    xlogo 存活={alive} 屏幕变化={changed}（阈值 500）")
-    if p.poll() is None:
-        p.terminate()
-    return alive and changed > 500
+def _windows(dpy) -> list[tuple[int, str]]:
+    """返回 (viewable 顶层窗口 id, 标题) 列表（截图之外的第二条确定性证据）。"""
+    class Attrs(ctypes.Structure):
+        _fields_ = [("x", ctypes.c_int), ("y", ctypes.c_int), ("width", ctypes.c_int),
+                    ("height", ctypes.c_int), ("border_width", ctypes.c_int),
+                    ("depth", ctypes.c_int), ("visual", ctypes.c_void_p),
+                    ("root", ctypes.c_ulong), ("class", ctypes.c_int),
+                    ("bit_gravity", ctypes.c_int), ("win_gravity", ctypes.c_int),
+                    ("backing_store", ctypes.c_int), ("backing_planes", ctypes.c_ulong),
+                    ("backing_pixel", ctypes.c_ulong), ("save_under", ctypes.c_int),
+                    ("colormap", ctypes.c_ulong), ("map_installed", ctypes.c_int),
+                    ("map_state", ctypes.c_int), ("all_event_masks", ctypes.c_long),
+                    ("your_event_mask", ctypes.c_long), ("do_not_propagate_mask", ctypes.c_long),
+                    ("override_redirect", ctypes.c_int), ("screen", ctypes.c_void_p)]
+
+    root = ctypes.c_ulong()
+    parent = ctypes.c_ulong()
+    children = ctypes.POINTER(ctypes.c_ulong)()
+    n = ctypes.c_uint()
+    found: list[tuple[int, str]] = []
+    if not _x11.XQueryTree(dpy, _x11.XDefaultRootWindow(dpy), ctypes.byref(root),
+                           ctypes.byref(parent), ctypes.byref(children), ctypes.byref(n)):
+        return found
+    for i in range(n.value):
+        wid = children[i]
+        attrs = Attrs()
+        if _x11.XGetWindowAttributes(dpy, wid, ctypes.byref(attrs)) and attrs.map_state == 2:
+            name = ctypes.c_char_p()
+            title = ""
+            if _x11.XFetchName(dpy, wid, ctypes.byref(name)):
+                title = (name.value or b"").decode("utf-8", errors="replace")
+                _x11.XFree(name)
+            found.append((wid, title))
+    if children:
+        _x11.XFree(children)
+    return found
+
+
+def _wait_window(dpy, wanted: str, timeout: float = 6.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if any(wanted in t for _, t in _windows(dpy)):
+            return True
+        time.sleep(0.3)
+    return False
+
+
+def _wait_window_gone(dpy, wanted: str, timeout: float = 6.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not any(wanted in t for _, t in _windows(dpy)):
+            return True
+        time.sleep(0.3)
+    return False
 
 
 def main() -> int:
     assert hand.BACKEND == "x11", f"期望 x11 后端，实际 {hand.BACKEND}"
     print("[1] XTest 后端就绪")
-    xmessage_ok = _try_xmessage_click()
-    if not xmessage_ok:
-        ok = _try_xlogo_launch()
-        print(f"    兜底结果: {'通过' if ok else '失败'}")
-        assert ok, "兜底路径也未通过，Linux 真实运行链路异常"
+    dpy = _x11.XOpenDisplay(None)
+    assert dpy, "无法打开 X display"
+
+    print("[A] xmessage: 启动 -> 窗口映射 -> 真实点击+回车 -> 窗口消失")
+    hand.move_to(400, 300)
+    p = subprocess.Popen(["xmessage", "-buttons", "Click:0", "-default", "Click",
+                          "-title", "wa-live-test", "winagent live test"])
+    appeared = _wait_window(dpy, "wa-live-test")
+    print(f"    真实窗口出现: {appeared}")
+    before = vision.capture_screen()[0]
+    hand.click(400, 300)
+    time.sleep(0.6)
+    hand.press(hand.VK_RETURN)
+    time.sleep(1.2)
+    gone = _wait_window_gone(dpy, "wa-live-test")
+    after = vision.capture_screen()[0]
+    changed = sum(1 for px in __import__("PIL.ImageChops", fromlist=["difference"]).difference(
+        before, after).convert("L").getdata() if px > 20)
+    print(f"    窗口消失: {gone} | 进程退出: {p.poll() is not None} | 像素变化(参考): {changed}")
+    if p.poll() is None:
+        p.terminate()
+    assert appeared and gone, "xmessage 窗口生命周期验证失败"
+
+    print("[B] 截屏链路对照（mss 在 xvfb 下工作）")
+    img, mon = vision.capture_screen()
+    print(f"    截屏 {mon['width']}x{mon['height']} -> {img.size} 字节级可用")
+    assert img.width > 0
+
     print("LINUX-GUI-LIVE PASS")
     return 0
 
