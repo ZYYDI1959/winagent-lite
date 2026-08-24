@@ -5,6 +5,7 @@ runs: 5
 verify_level: A
 setup:
   - kill_process: notepad
+  - clear_notepad_session: true
   - kill_process: taskmgr
   - kill_process: calc
   - create_file: {path: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt', content: "BASE-基线\n"}
@@ -15,6 +16,7 @@ steps:
       target: 记事本窗口中间的白色文本编辑区域
       max_tries: 2
   - wait: 0.3
+  - key: ctrl+end
   - type: " 压测行：人工智能代理在真实图形界面上完成操作，准确率 ABC-123-xyz，结束。"
   - key: ctrl+s
   - wait: 1.2

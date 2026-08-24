@@ -35,6 +35,8 @@ VK_CONTROL = 0x11
 VK_MENU = 0x12
 VK_ESCAPE = 0x1B
 VK_LWIN = 0x5B
+VK_HOME = 0x24
+VK_END = 0x23
 
 _user32_vk = ctypes.windll.user32
 _VkKeyScanW = _user32_vk.VkKeyScanW
@@ -50,6 +52,8 @@ _KEY_NAMES = {
     "alt": VK_MENU,
     "esc": VK_ESCAPE,
     "win": VK_LWIN,
+    "home": VK_HOME,
+    "end": VK_END,
 }
 for _i in range(1, 25):  # F1-F24 (VK_F1=0x70 起)
     _KEY_NAMES[f"f{_i}"] = 0x70 + _i - 1
@@ -118,34 +122,67 @@ def hotkey(*vks: int, hold_ms: int = 30) -> None:
         time.sleep(hold_ms / 1000)
 
 
-def _type_char_vk(ch: str, hold_ms: int = 8) -> None:
-    """ASCII 可打印字符走虚拟键路径（WinUI 应用如计算器不认 UNICODE 注入的运算符）。"""
+def _send_inputs(inputs: list[INPUT]) -> None:
+    """一次 SendInput 提交多个事件（原子性：Shift+字符不会被应用拆开误读）。"""
+    n = len(inputs)
+    arr = (INPUT * n)(*inputs)
+    _user32.SendInput(n, arr, ctypes.sizeof(INPUT))
+
+
+def _key_input(wVk: int = 0, wScan: int = 0, flags: int = 0) -> INPUT:
+    inp = INPUT(type=INPUT_KEYBOARD)
+    inp.ki = KEYBDINPUT(wVk=wVk, wScan=wScan, dwFlags=flags)
+    return inp
+
+
+def _type_char_vk(ch: str, hold_ms: int = 10) -> None:
+    """ASCII 可打印字符走虚拟键路径（WinUI 应用如计算器不认 UNICODE 注入的运算符）。
+
+    Shift 与字符键在同一次 SendInput 里原子按下/抬起，避免高速打字时的 Shift 竞态
+    （实测竞态症状：LINE-2-WinAgent 打成 line-2-WinAGENT）。
+    """
     code = _VkKeyScanW(ch)
     vk = code & 0xFF
-    shift = bool(code >> 8 & 1)
+    shift = bool((code >> 8) & 1)
+    downs, ups = [], []
     if shift:
-        _send_key(wVk=VK_SHIFT)
-    _send_key(wVk=vk)
+        downs.append(_key_input(wVk=VK_SHIFT))
+    downs.append(_key_input(wVk=vk))
+    ups.append(_key_input(wVk=vk, flags=KEYEVENTF_KEYUP))
+    if shift:
+        ups.append(_key_input(wVk=VK_SHIFT, flags=KEYEVENTF_KEYUP))
+    _send_inputs(downs)
     time.sleep(hold_ms / 1000)
-    _send_key(wVk=vk, flags=KEYEVENTF_KEYUP)
-    if shift:
-        _send_key(wVk=VK_SHIFT, flags=KEYEVENTF_KEYUP)
+    _send_inputs(ups)
     time.sleep(hold_ms / 1000)
 
 
-def type_text(text: str, interval_ms: int = 8) -> None:
+def type_text(text: str, interval_ms: int = 10, mode: str = "auto") -> None:
     """向当前焦点窗口逐字符输入。
 
-    ASCII 可打印字符走虚拟键（真实按键语义，兼容 WinUI 应用），
-    其余（中文等）走 UNICODE 直输。
+    实测结论（详见 docs/baseline_v0.1.md）：
+    - UNICODE 直输绕过中文 IME，字母/数字/中文都正确，但 WinUI 计算器不认运算符；
+    - 虚拟键路径会被中文 IME 劫持（大小写漂移），但运算符必须走它。
+    auto 模式：字母/数字/空格/非ASCII 走 UNICODE，仅 ASCII 标点运算符走虚拟键。
+    mode="unicode"/"vk" 可强制全量走某一路径。
     """
     for ch in text:
-        if ch.isascii() and ch.isprintable():
+        if mode == "vk":
+            use_vk = True
+        elif mode == "unicode":
+            use_vk = False
+        else:  # auto
+            use_vk = ch.isascii() and ch.isprintable() and not (ch.isalnum() or ch == " ")
+        if use_vk:
             _type_char_vk(ch, interval_ms)
         else:
-            _send_key(wScan=ord(ch), flags=KEYEVENTF_UNICODE)
+            _send_inputs([
+                _key_input(wScan=ord(ch), flags=KEYEVENTF_UNICODE),
+            ])
             time.sleep(interval_ms / 1000)
-            _send_key(wScan=ord(ch), flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)
+            _send_inputs([
+                _key_input(wScan=ord(ch), flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP),
+            ])
             time.sleep(interval_ms / 1000)
 
 

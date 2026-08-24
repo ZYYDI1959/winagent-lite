@@ -5,6 +5,7 @@ runs: 5
 verify_level: A
 setup:
   - kill_process: notepad
+  - clear_notepad_session: true
   - kill_process: taskmgr
   - kill_process: calc
   - create_file: {path: 'C:/Users/ZY/AppData/Local/Temp/winagent_note.txt', content: "LINE-1-原始内容 12345\n"}
@@ -15,6 +16,7 @@ steps:
       target: 记事本窗口中间的白色文本编辑区域
       max_tries: 2
   - wait: 0.3
+  - key: ctrl+end
   - type: " LINE-2-WinAgent 追加内容 67890"
   - key: ctrl+s
   - wait: 1.2

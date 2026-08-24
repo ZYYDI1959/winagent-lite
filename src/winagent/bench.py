@@ -70,6 +70,21 @@ def _query_taskmgr() -> str:
     return res.stdout.decode("utf-8", errors="replace")
 
 
+def _clear_notepad_session() -> None:
+    """删除 Win11 记事本的会话标签记录，防止启动时恢复旧未保存标签页。
+
+    根因：强杀/异常退出后 TabState 残留，下次启动恢复旧标签，
+    新输入打进恢复的未保存文档，Ctrl+S 变成另存为对话框。
+    """
+    tab_state = Path("C:/Users/ZY/AppData/Local/Packages/Microsoft.WindowsNotepad_8wekyb3d8bbwe/LocalState/TabState")
+    if tab_state.exists():
+        for f in tab_state.iterdir():
+            try:
+                f.unlink()
+            except OSError:
+                pass
+
+
 # 进程操作白名单：名字 -> 字面量命令函数，名字只用于选择
 KILLERS = {
     "notepad": _kill_notepad,
@@ -96,13 +111,17 @@ def _safe_temp_path(p: str) -> Path:
     return ab
 
 
-def _do_verb(verb: dict) -> None:
+def _do_verb(verb) -> None:
+    if isinstance(verb, str):  # 兼容无参数动词的裸字符串写法
+        verb = {verb: True}
     for key, val in verb.items():
         if key == "kill_process":
             fn = KILLERS.get(str(val))
             if fn is None:
                 raise ValueError(f"kill_process 白名单外: {val}")
             fn()
+        elif key == "clear_notepad_session":
+            _clear_notepad_session()
         elif key == "create_file":
             path = _safe_temp_path(val["path"])
             path.parent.mkdir(parents=True, exist_ok=True)
