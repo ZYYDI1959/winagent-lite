@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.4.0 - 2026-08-24
+
+### Added
+
+- **MCP 插件化**：server 协议硬化（initialize 版本协商 / notifications / 规范错误码），工具 6→9 个（新增 `doctor` / `screenshot` / `discover`），`screenshot` 走 MCP image content 原生返回（宿主直接渲染）
+- **docs/PLUGINS.md**：ZCode / Claude Desktop / Cursor 等平台的接入配置、工具目录、安全边界与排障
+- **协议一致性测试** `scripts/test_mcp_protocol.py`（stdio 握手/工具清单/错误处理/image 返回，CI 三平台跑）
+- README 介绍页全面优化：能力表 / 架构图 / 插件接入段 / 平台表 / 评测结论 / 安全边界
+
+### Changed
+
+- mcp_server 工具 schema 全部带类型与描述，`run_scenario` 日志与协议流隔离
+
 ## v0.3.0 - 2026-08-24
 
 ### Added

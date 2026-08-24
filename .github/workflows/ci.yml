@@ -60,6 +60,8 @@ jobs:
         run: python -c "from winagent import hand; hand.type_text('ci-smoke-123'); print('keyboard OK')"
       - name: 组合键解析
         run: python -c "from winagent import hand; hand.combo('ctrl+end'); print('combo OK')"
+      - name: MCP 协议一致性测试
+        run: python -u scripts/test_mcp_protocol.py
 
   linux-x11-smoke:
     name: Linux X11 后端冒烟（XTest @ xvfb）
@@ -83,3 +85,5 @@ jobs:
           hand.combo('ctrl+end')
           print('x11 backend OK @', x, y)
           "
+      - name: MCP 协议一致性测试
+        run: xvfb-run -a python -u scripts/test_mcp_protocol.py
