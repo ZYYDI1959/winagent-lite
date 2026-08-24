@@ -199,34 +199,49 @@ def main() -> None:
             req = json.loads(line)
         except json.JSONDecodeError:
             continue
-        rid = req.get("id")
-        method = req.get("method", "")
-        if rid is None:  # notification（如 notifications/initialized）不回复
-            continue
-        if method == "initialize":
-            resp = {"jsonrpc": "2.0", "id": rid, "result": {
-                "protocolVersion": _PROTOCOL_VERSION,
-                "capabilities": {"tools": {"listChanged": True}},
-                "serverInfo": _SERVER_INFO,
-            }}
-        elif method == "tools/list":
+        try:
+            _dispatch(req)
+        except Exception:  # noqa: BLE001 单条消息异常只记 stderr，绝不退出 server
+            import traceback
+
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
+            if req.get("id") is not None:
+                resp = {"jsonrpc": "2.0", "id": req.get("id"),
+                        "error": {"code": -32603, "message": "internal error"}}
+                sys.stdout.write(json.dumps(resp) + "\n")
+                sys.stdout.flush()
+
+
+def _dispatch(req: dict) -> None:
+    rid = req.get("id")
+    method = req.get("method", "")
+    if rid is None:  # notification（如 notifications/initialized）不回复
+        return
+    if method == "initialize":
+        resp = {"jsonrpc": "2.0", "id": rid, "result": {
+            "protocolVersion": _PROTOCOL_VERSION,
+            "capabilities": {"tools": {"listChanged": True}},
+            "serverInfo": _SERVER_INFO,
+        }}
+    elif method == "tools/list":
+        resp = {"jsonrpc": "2.0", "id": rid,
+                "result": {"tools": _TOOLS, "nextCursor": None}}
+    elif method == "tools/call":
+        try:
+            content = _handle(req["params"]["name"], req["params"].get("arguments", {}))
+            resp = {"jsonrpc": "2.0", "id": rid, "result": {"content": content}}
+        except Exception as exc:  # noqa: BLE001 协议边界：错误必须转成文本响应而非崩掉 server
             resp = {"jsonrpc": "2.0", "id": rid,
-                    "result": {"tools": _TOOLS, "nextCursor": None}}
-        elif method == "tools/call":
-            try:
-                content = _handle(req["params"]["name"], req["params"].get("arguments", {}))
-                resp = {"jsonrpc": "2.0", "id": rid, "result": {"content": content}}
-            except Exception as exc:  # noqa: BLE001 协议边界：错误必须转成文本响应而非崩掉 server
-                resp = {"jsonrpc": "2.0", "id": rid,
-                        "result": {"content": [{"type": "text", "text": f"ERROR: {exc}"}],
-                                   "isError": True}}
-        elif method == "ping":
-            resp = {"jsonrpc": "2.0", "id": rid, "result": {}}
-        else:
-            resp = {"jsonrpc": "2.0", "id": rid,
-                    "error": {"code": -32601, "message": f"Method not found: {method}"}}
-        sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
-        sys.stdout.flush()
+                    "result": {"content": [{"type": "text", "text": f"ERROR: {exc}"}],
+                               "isError": True}}
+    elif method == "ping":
+        resp = {"jsonrpc": "2.0", "id": rid, "result": {}}
+    else:
+        resp = {"jsonrpc": "2.0", "id": rid,
+                "error": {"code": -32601, "message": f"Method not found: {method}"}}
+    sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":
