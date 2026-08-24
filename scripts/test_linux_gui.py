@@ -18,8 +18,10 @@ _x11.XDefaultRootWindow.restype = ctypes.c_ulong
 _x11.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
 _x11.XQueryTree.argtypes = [ctypes.c_void_p, ctypes.c_ulong,
                             ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
-                            ctypes.POINTER(ctypes.POINTER(ctypes.c_ulong))]
-_x11.XGetWindowAttributes.restype = ctypes.c_int
+                            ctypes.POINTER(ctypes.POINTER(ctypes.c_ulong)),
+                            ctypes.POINTER(ctypes.c_uint)]
+_x11.XGetWindowAttributes.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p]
+_x11.XFree.restype = ctypes.c_int
 _x11.XFree.argtypes = [ctypes.c_void_p]
 _x11.XFetchName.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_char_p)]
 
