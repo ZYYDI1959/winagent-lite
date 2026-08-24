@@ -23,15 +23,17 @@ def send(proc, payload: dict) -> dict:
     proc.stdin.write(json.dumps(payload) + "\n")
     proc.stdin.flush()
     line = proc.stdout.readline()
-    assert line, "server 未返回任何内容"
+    if not line:
+        stderr = proc.stderr.read() if proc.stderr else ""
+        raise AssertionError(f"server 未返回任何内容；stderr:\n{stderr[:2000]}")
     return json.loads(line)
 
 
 def main() -> int:
     proc = subprocess.Popen(
         [str(PY), "-m", "winagent.mcp_server"],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-        text=True, encoding="utf-8",
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, encoding="utf-8", errors="replace",
     )
     try:
         # 1) initialize 握手：版本协商 + 能力声明
