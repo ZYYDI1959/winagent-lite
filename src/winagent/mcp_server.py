@@ -16,6 +16,12 @@ import io
 import json
 import sys
 
+# MCP 协议要求 JSON 一律 UTF-8；Windows 控制台默认 cp1252 会写崩中文 description
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 _PROTOCOL_VERSION = "2024-11-05"
 _SERVER_INFO = {"name": "winagent", "version": "0.4.0"}
 
