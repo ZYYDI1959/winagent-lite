@@ -26,8 +26,8 @@ _x11.XFree.argtypes = [ctypes.c_void_p]
 _x11.XFetchName.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_char_p)]
 
 
-def _windows(dpy) -> list[tuple[int, str]]:
-    """返回 (viewable 顶层窗口 id, 标题) 列表（截图之外的第二条确定性证据）。"""
+def _windows(dpy) -> list[tuple[int, str, int, int, int, int]]:
+    """返回 (viewable 顶层窗口 id, 标题, x, y, w, h) 列表（确定性证据+可点击坐标）。"""
     class Attrs(ctypes.Structure):
         _fields_ = [("x", ctypes.c_int), ("y", ctypes.c_int), ("width", ctypes.c_int),
                     ("height", ctypes.c_int), ("border_width", ctypes.c_int),
@@ -45,7 +45,7 @@ def _windows(dpy) -> list[tuple[int, str]]:
     parent = ctypes.c_ulong()
     children = ctypes.POINTER(ctypes.c_ulong)()
     n = ctypes.c_uint()
-    found: list[tuple[int, str]] = []
+    found: list[tuple[int, str, int, int, int, int]] = []
     if not _x11.XQueryTree(dpy, _x11.XDefaultRootWindow(dpy), ctypes.byref(root),
                            ctypes.byref(parent), ctypes.byref(children), ctypes.byref(n)):
         return found
@@ -58,16 +58,24 @@ def _windows(dpy) -> list[tuple[int, str]]:
             if _x11.XFetchName(dpy, wid, ctypes.byref(name)):
                 title = (name.value or b"").decode("utf-8", errors="replace")
                 _x11.XFree(name)
-            found.append((wid, title))
+            found.append((wid, title, attrs.x, attrs.y, attrs.width, attrs.height))
     if children:
         _x11.XFree(children)
     return found
 
 
+def _find(dpy, wanted: str) -> tuple[int, int] | None:
+    """按标题找窗口，返回其中心坐标（用于确定性点击）；找不到返回 None。"""
+    for _, title, x, y, w, h in _windows(dpy):
+        if wanted in title:
+            return x + w // 2, y + h // 2
+    return None
+
+
 def _wait_window(dpy, wanted: str, timeout: float = 6.0) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if any(wanted in t for _, t in _windows(dpy)):
+        if _find(dpy, wanted) is not None:
             return True
         time.sleep(0.3)
     return False
@@ -88,16 +96,17 @@ def main() -> int:
     dpy = _x11.XOpenDisplay(None)
     assert dpy, "无法打开 X display"
 
-    print("[A] xmessage: 启动 -> 窗口映射 -> 真实点击+回车 -> 窗口消失")
-    hand.move_to(400, 300)
+    print("[A] xmessage: 启动 -> 窗口映射 -> 点窗口正中 -> 回车 -> 窗口消失")
     p = subprocess.Popen(["xmessage", "-buttons", "Click:0", "-default", "Click",
                           "-title", "wa-live-test", "winagent live test"])
     appeared = _wait_window(dpy, "wa-live-test")
     print(f"    真实窗口出现: {appeared}")
+    center = _find(dpy, "wa-live-test")
     before = vision.capture_screen()[0]
-    hand.click(400, 300)
+    if center:
+        hand.click(center[0], center[1])  # 点窗口本体获取焦点（不触发按钮）
     time.sleep(0.6)
-    hand.press(hand.VK_RETURN)
+    hand.press(hand.VK_RETURN)  # 回车触发默认按钮 Click -> 关闭
     time.sleep(1.2)
     gone = _wait_window_gone(dpy, "wa-live-test")
     after = vision.capture_screen()[0]
