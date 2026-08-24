@@ -18,16 +18,19 @@ def _diff_pixels(before, after) -> int:
 
 
 def _try_xmessage_click() -> bool:
-    print("[A] xmessage 真实点击链路")
+    print("[A] xmessage 真实点击+回车链路")
     hand.move_to(400, 300)  # xmessage 弹出在指针旁
     p = subprocess.Popen(
-        ["xmessage", "-buttons", "Click:0", "-title", "wa-live-test", "winagent live test"])
+        ["xmessage", "-buttons", "Click:0", "-default", "Click",
+         "-title", "wa-live-test", "winagent live test"])
     time.sleep(2.5)
     if p.poll() is not None:
         print(f"    xmessage 启动失败（rc={p.returncode}），走兜底路径")
         return False
     before = vision.capture_screen()[0]
-    hand.click(400, 300)  # 点中按钮 -> 对话框关闭
+    hand.click(400, 300)  # 点对话框本体获取焦点（不会触发按钮）
+    time.sleep(0.6)
+    hand.press(hand.VK_RETURN)  # 回车触发默认按钮 Click -> 对话框关闭
     time.sleep(1.5)
     changed = _diff_pixels(before, vision.capture_screen()[0])
     closed = p.poll() is not None

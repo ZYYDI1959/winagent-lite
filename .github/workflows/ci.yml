@@ -73,7 +73,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: sudo apt-get update && sudo apt-get install -y libxtst6 xvfb xterm xfonts-base x11-utils
+      - run: sudo apt-get update && sudo apt-get install -y libxtst6 xvfb xterm xfonts-base x11-utils x11-apps
       - run: pip install -e .
       - name: X11 后端真实输入（xvfb 虚拟显示下）
         run: |
