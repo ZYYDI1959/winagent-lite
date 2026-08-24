@@ -36,10 +36,16 @@ _x11.XQueryPointer.argtypes = [
     ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_uint),
 ]
 
-_display = _x11.XOpenDisplay(None)
-if not _display:
-    raise RuntimeError("无法打开 X display（需要图形会话；无头环境请用 xvfb-run）")
-_root = _x11.XDefaultRootWindow(_display)
+_display = None  # 惰性连接：无头环境导入不崩，用到才报错（CI 无头场景友好）
+
+
+def _ensure_display():
+    global _display
+    if _display is None:
+        _display = _x11.XOpenDisplay(None)
+        if not _display:
+            raise RuntimeError("无法打开 X display（需要图形会话；无头环境请用 xvfb-run）")
+    return _display
 
 # 与 win32 相同的 VK 编号，保证跨后端 API 一致
 VK_BACK = 0x08
@@ -84,6 +90,30 @@ _VK_TO_KEYSYM = {
 
 _SHIFTED_PUNCT = set('~!@#$%^&*()_+{}|:"<>?')  # 需要 Shift 的 ASCII 标点
 
+# ASCII 标点 -> X11 keysym 名（XStringToKeysym 不认字面字符名，必须用标准名）
+_PUNCT_KEYSYM = {
+    "-": "minus", "=": "equal", "+": "plus", "*": "asterisk", "/": "slash",
+    "\\": "backslash", "|": "bar", "(": "parenleft", ")": "parenright",
+    "[": "bracketleft", "]": "bracketright", "{": "braceleft", "}": "braceright",
+    ":": "colon", ";": "semicolon", '"': "quotedbl", "'": "apostrophe",
+    "<": "less", ">": "greater", ",": "comma", ".": "period", "?": "question",
+    "!": "exclam", "@": "at", "#": "numbersign", "$": "dollar", "%": "percent",
+    "^": "asciicircum", "&": "ampersand", "_": "underscore", "~": "asciitilde",
+    "`": "grave", " ": "space",
+}
+
+
+def _char_keysym(ch: str) -> tuple[str, bool]:
+    """字符 -> (keysym 名, 是否需要 Shift)。"""
+    if ch.isalpha():
+        return ch.lower(), ch.isupper()
+    if ch.isdigit() or ch == " ":
+        return ch, False
+    name = _PUNCT_KEYSYM.get(ch)
+    if name is None:
+        raise ValueError(f"x11 后端不支持字符: {ch!r}")
+    return name, ch in _SHIFTED_PUNCT
+
 
 def _vk_name(vk: int) -> str:
     if vk in _VK_TO_KEYSYM:
@@ -98,20 +128,21 @@ def _vk_name(vk: int) -> str:
 
 
 def _key_event(name: str, down: bool) -> None:
+    dpy = _ensure_display()
     keysym = _x11.XStringToKeysym(name.encode())
     if not keysym:
         raise ValueError(f"未知 keysym: {name!r}")
-    kc = _x11.XKeysymToKeycode(_display, keysym)
-    _xtst.XTestFakeKeyEvent(_display, kc, 1 if down else 0, 0)
-    _x11.XFlush(_display)
+    kc = _x11.XKeysymToKeycode(dpy, keysym)
+    _xtst.XTestFakeKeyEvent(dpy, kc, 1 if down else 0, 0)
+    _x11.XFlush(dpy)
 
 
 def _char_event(ch: str, down: bool) -> None:
-    """单字符按键事件（大写/符号自动带 Shift）。"""
-    needs_shift = ch.isupper() or ch in _SHIFTED_PUNCT
+    """单字符按键事件（大写/符号自动带 Shift，Keysym 名走标准映射表）。"""
+    name, needs_shift = _char_keysym(ch)
     if needs_shift and down:
         _key_event("Shift_L", True)
-    _key_event(ch.lower() if ch.isalpha() else ch, down)
+    _key_event(name, down)
     if needs_shift and not down:
         _key_event("Shift_L", False)
 
@@ -147,15 +178,18 @@ def type_text(text: str, interval_ms: int = 10, mode: str = "auto") -> None:
 
 
 def move_to(x: int, y: int) -> None:
-    _xtst.XTestFakeMotionEvent(_display, -1, int(x), int(y), 0)  # -1 = 当前屏幕
-    _x11.XFlush(_display)
+    dpy = _ensure_display()
+    _xtst.XTestFakeMotionEvent(dpy, -1, int(x), int(y), 0)  # -1 = 当前屏幕
+    _x11.XFlush(dpy)
 
 
 def get_cursor_pos() -> tuple[int, int]:
+    dpy = _ensure_display()
     rr, cr = ctypes.c_ulong(), ctypes.c_ulong()
     rx, ry, wx, wy = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
     mask = ctypes.c_uint()
-    _x11.XQueryPointer(_display, _root, ctypes.byref(rr), ctypes.byref(cr),
+    root = _x11.XDefaultRootWindow(dpy)
+    _x11.XQueryPointer(dpy, root, ctypes.byref(rr), ctypes.byref(cr),
                        ctypes.byref(rx), ctypes.byref(ry), ctypes.byref(wx),
                        ctypes.byref(wy), ctypes.byref(mask))
     return wx.value, wy.value
@@ -166,12 +200,13 @@ def click(x: int | None = None, y: int | None = None, *, double: bool = False,
     if x is not None and y is not None:
         move_to(x, y)
         time.sleep(settle_ms / 1000)
+    dpy = _ensure_display()
     btn = 3 if right else 1
     for i in range(2 if double else 1):
-        _xtst.XTestFakeButtonEvent(_display, btn, 1, 0)
-        _x11.XFlush(_display)
-        _xtst.XTestFakeButtonEvent(_display, btn, 0, 0)
-        _x11.XFlush(_display)
+        _xtst.XTestFakeButtonEvent(dpy, btn, 1, 0)
+        _x11.XFlush(dpy)
+        _xtst.XTestFakeButtonEvent(dpy, btn, 0, 0)
+        _x11.XFlush(dpy)
         if double and i == 0:
             time.sleep(0.06)
 
@@ -197,14 +232,15 @@ def combo(keys: str) -> None:
 
 def foreground_title() -> str:
     """X 输入焦点窗口的 WM_NAME（部分窗口/环境为空串，属正常）。"""
+    dpy = _ensure_display()
     win = ctypes.c_ulong()
     revert = ctypes.c_int()
-    _x11.XGetInputFocus(_display, ctypes.byref(win), ctypes.byref(revert))
+    _x11.XGetInputFocus(dpy, ctypes.byref(win), ctypes.byref(revert))
     if not win.value:
         return ""
     name = ctypes.c_char_p()
-    if not _x11.XFetchName(_display, win.value, ctypes.byref(name)):
-        return ""
+    if not _x11.XFetchName(dpy, win.value, ctypes.byref(name)):
+        return """""
     try:
         return name.value.decode("utf-8", errors="replace")
     finally:
