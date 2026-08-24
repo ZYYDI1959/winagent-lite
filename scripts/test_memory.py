@@ -3,12 +3,18 @@
 用于发现内存泄漏（RSS 应保持平稳）。用法: python -u scripts/test_memory.py
 CI 的 Windows GUI job 会执行。
 """
+import sys
 import time
 
 import psutil
 
 from winagent import vision
 from winagent.config import Config
+
+# 测试脚本固定前缀：Windows CI 控制台默认 cp1252，中文输出会崩——强制 UTF-8
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
 def main() -> int:
