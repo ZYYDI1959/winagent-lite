@@ -12,6 +12,11 @@ from __future__ import annotations
 import ctypes
 import time
 
+
+class _Point(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
+
+
 _core = ctypes.CDLL("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
 _app = ctypes.CDLL("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices")
 
@@ -23,20 +28,19 @@ kCGHIDEventTap = 0
 kCGMouseEventDeltaX = 24
 kCGEventSourceStateHIDSystemState = 1
 
-_core.CGEventCreateMouseEvent.restype = ctypes.c_void_p
-_core.CGEventCreateMouseEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
-_core.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
-_core.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_ushort, ctypes.c_bool]
 _core.CGEventSetIntegerValueField.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int64]
 _core.CGEventKeyboardSetUnicodeString.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.POINTER(ctypes.c_uint16)]
 _core.CGEventPost.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+_core.CGEventGetLocation.restype = _Point  # CGPoint 按值返回
 _core.CGEventGetLocation.argtypes = [ctypes.c_void_p]
-_core.CGWarpMouseCursorPosition.argtypes = [ctypes.c_void_p]
+_core.CGWarpMouseCursorPosition.argtypes = [_Point]  # CGPoint 按值传入
 _core.CGEventCreate.argtypes = [ctypes.c_void_p]
+_core.CGEventCreate.restype = ctypes.c_void_p
 _core.CGEventSetLocation.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-
-class _Point(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
+_core.CGEventCreateMouseEvent.restype = ctypes.c_void_p
+_core.CGEventCreateMouseEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, _Point, ctypes.c_uint]
+_core.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
+_core.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_ushort, ctypes.c_bool]
 
 # --- 键码表（macOS 虚拟键码，常用子集）---
 _KCODE = {
@@ -110,7 +114,7 @@ def _char_key(ch: str, down: bool) -> None:
 
 def _mouse_event(kind: int, x: int, y: int) -> None:
     pt = _Point(float(x), float(y))
-    ev = _core.CGEventCreateMouseEvent(None, kind, ctypes.byref(pt), 0)
+    ev = _core.CGEventCreateMouseEvent(None, kind, pt, 0)  # CGPoint 按值
     _core.CGEventPost(kCGHIDEventTap, ev)
 
 
@@ -143,14 +147,12 @@ def type_text(text: str, interval_ms: int = 10, mode: str = "auto") -> None:
 
 
 def move_to(x: int, y: int) -> None:
-    pt = _Point(float(x), float(y))
-    _core.CGWarpMouseCursorPosition(ctypes.byref(pt))
+    _core.CGWarpMouseCursorPosition(_Point(float(x), float(y)))  # CGPoint 按值
 
 
 def get_cursor_pos() -> tuple[int, int]:
     ev = _core.CGEventCreate(None)
-    loc = _core.CGEventGetLocation(ev)
-    pt = ctypes.cast(loc, ctypes.POINTER(_Point)).contents
+    pt = _core.CGEventGetLocation(ev)  # restype=_Point，按值返回
     return int(pt.x), int(pt.y)
 
 
