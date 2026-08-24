@@ -240,7 +240,7 @@ def foreground_title() -> str:
         return ""
     name = ctypes.c_char_p()
     if not _x11.XFetchName(dpy, win.value, ctypes.byref(name)):
-        return """""
+        return ""
     try:
         return name.value.decode("utf-8", errors="replace")
     finally:

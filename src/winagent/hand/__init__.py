@@ -19,11 +19,11 @@ _IMPL_ERROR: Exception | None = None
 
 try:
     if _sys.platform.startswith("win"):
-        from . import win32 as _impl  # noqa: PLC2701
+        from . import win32 as _impl
     elif _sys.platform.startswith("linux"):
-        from . import x11 as _impl  # noqa: PLC2701
+        from . import x11 as _impl
     elif _sys.platform == "darwin":
-        from . import macos as _impl  # noqa: PLC2701
+        from . import macos as _impl
     else:
         raise RuntimeError(f"尚不支持的系统平台: {_sys.platform}")
 except Exception as exc:  # noqa: BLE001 导入期兜底：无图形库/无系统组件时不挡导入
