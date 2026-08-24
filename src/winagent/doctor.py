@@ -8,6 +8,44 @@ from pathlib import Path
 from winagent.config import Config
 
 
+def _hardware_info() -> tuple[bool, str]:
+    """CPU/GPU 探测（AMD/Intel CPU 与 NVIDIA/AMD/Intel GPU 均可；尽力而为，失败不阻断）。"""
+    import platform
+
+    parts = []
+    cpu = platform.processor()
+    if not cpu or "unknown" in cpu.lower():
+        try:  # Linux
+            with open("/proc/cpuinfo", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        cpu = line.split(":", 1)[1].strip()
+                        break
+        except OSError:
+            pass
+    parts.append(f"CPU: {cpu or '未知'}")
+    gpu_names: list[str] = []
+    try:
+        import subprocess
+
+        if sys.platform.startswith("win"):
+            # Win11 已弃用 wmic，优先 PowerShell CIM 查询
+            out = subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
+                capture_output=True, timeout=15, check=False).stdout.decode("utf-8", errors="replace")
+            gpu_names = [l.strip() for l in out.splitlines() if l.strip() and "Name" not in l]
+        else:
+            out = subprocess.run(["lspci"], capture_output=True, timeout=10, check=False).stdout.decode("utf-8", errors="replace")
+            gpu_names = [l.split(":", 1)[1].strip() for l in out.splitlines()
+                         if " vga" in l.lower() or "3d controller" in l.lower()]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    parts.append(f"GPU: {', '.join(gpu_names) if gpu_names else '未检出（Ollama 将走 CPU 推理）'}")
+    parts.append("推理后端: Ollama 自动选择 CPU / NVIDIA-CUDA / AMD-ROCm·Vulkan / Intel-Vulkan")
+    return True, " | ".join(parts)
+
+
 def run_checks(cfg: Config | None = None) -> list[tuple[bool, str]]:
     cfg = cfg or Config()
     checks: list[tuple[bool, str]] = []
@@ -54,6 +92,7 @@ def run_checks(cfg: Config | None = None) -> list[tuple[bool, str]]:
     from winagent.agent import LAUNCHERS
 
     checks.append((True, f"启动白名单: {', '.join(sorted(LAUNCHERS))}"))
+    checks.append(_hardware_info())
     return checks
 
 
