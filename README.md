@@ -1,5 +1,7 @@
 # WinAgent-Lite
 
+![demo](docs/demo.gif)
+
 本地视觉模型驱动的 Windows GUI Agent，附带可复现评测集——让 GUI 自动化从"能演示"变成"能度量"。
 
 A local-vision-driven Windows GUI agent with a reproducible benchmark — turning GUI automation from "demoable" to "measurable".
