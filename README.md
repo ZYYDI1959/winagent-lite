@@ -5,8 +5,15 @@
 ![demo](docs/demo.gif)
 
 [![CI](https://github.com/ZYYDI1959/winagent-lite/actions/workflows/ci.yml/badge.svg)](https://github.com/ZYYDI1959/winagent-lite/actions/workflows/ci.yml)
-[![Release v0.4.0](https://img.shields.io/badge/release-v0.4.0-blue)](https://github.com/ZYYDI1959/winagent-lite/releases)
+[![Release v0.5.0](https://img.shields.io/badge/release-v0.5.0-blue)](https://github.com/ZYYDI1959/winagent-lite/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+## 安装（Windows / macOS / Linux）
+
+- **便携整合包**：下载 Release 里的 `winagent-*-portable.zip` → 解压 → 运行 `install.bat`（Win）/ `sh install.sh`（macOS/Linux）→ 自动装好并自检
+- **pip 直装**：`pip install <Release 里的 .whl 下载链接>`（py3-none-any，全平台通用）
+- 接入 ZCode / Claude / Cursor 等 MCP 平台：见 [docs/PLUGINS.md](docs/PLUGINS.md)
+- 详细安装与硬件矩阵：见 [docs/INSTALL.md](docs/INSTALL.md)
 
 > 一台没有独立显卡的普通电脑：本地小模型当眼睛（识别屏幕元素）＋ 真实键鼠事件当手（像人一样操作任何软件），再用评测集把成功率量化。从"能演示"到"能度量"，再到"能被任何平台调用"。
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.5.0 - 2026-08-24
+
+### Added
+
+- **硬件兼容**：`winagent doctor` 新增 CPU/GPU 探测（AMD/Intel CPU、NVIDIA/AMD/Intel GPU；
+  Windows 走 PowerShell CIM，Linux 走 lspci，macOS 友好）；推理后端说明（Ollama 自动选择 CUDA/ROCm/Vulkan/CPU）
+- **内存稳定性测试** `scripts/test_memory.py`（30 轮视觉链路，RSS 增长 <30MB 阈值；本机实测约 1.2MB，无泄漏），纳入 CI
+- **多格式发行包**：
+  - `scripts/build_bundle.py` 生成 wheel（py3-none-any，全平台）+ 便携 zip（解压→`install.bat`/`install.sh` 一键安装）
+  - `scripts/install.bat` / `scripts/install.sh` 一键安装脚本（自动 venv + 装 wheel + doctor 自检）
+  - `docs/INSTALL.md`：三平台三种安装方式 + 硬件兼容矩阵 + 内存/性能调优
+  - CI `release.yml`：推送 v* 标签自动构建 wheel/sdist 并上传到 GitHub Release
+- README 增补硬件矩阵与安装入口
+
+### Changed
+
+- mcp_server 强制 UTF-8 I/O（修复 Windows cp1252 控制台写崩协议流）；每消息异常隔离（单条坏消息不再杀 server）
+
 ## v0.4.0 - 2026-08-24
 
 ### Added
