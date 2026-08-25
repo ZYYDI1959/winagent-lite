@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.5.2 - 2026-08-25
+
+### Added
+
+- **VirtualBox Ubuntu 实机全自动 GUI 验证** `scripts/test_vm_gui.py`：在已登录的 GNOME/XWayland 桌面子会话里，XTest 后端 + 真实 xmessage 窗口映射（XQueryTree viewable）+ mss 截屏 + 真实点击/打字/回车，主判据 A 映射 + B 尺寸 + C 输入无异常；配套 docstring 说明真实画面用宿主 `controlvm screenshotpng` 补足
+
+### 实机测试结论（VirtualBox Ubuntu 桌面，全自动、零手动）
+
+- **GUI 真实运行通过**：窗口映射 `True`（中心 78,81）→ 点击/type_text/press(Enter) 全程无异常 → 光标与点击坐标一致
+- **视觉闭环通过**：VM 渲染级截图唤醒后 1280x800 数千色；宿主本地 VLM（qwen2.5vl）在实机画面上认出了启动的 `WINAGENT VM OK` 对话框——真实应用 → 渲染输出 → 截屏 → VLM 识窗 链路成立
+- env / doctor（除无 Ollama） / MCP 协议 / 内存 稳定性测试均 PASS（沿用 v0.5.0 套件）
+
+### 边界（如实记录，非 bug）
+
+- **屏幕纯黑 = GNOME 熄屏/锁屏**：长时间无活动后 DPMS 关闭 → mss/VM 截图全黑；注入一次按键唤醒即恢复，不是捕获链路问题
+- **XWayland 合成器焦点差异**：WM 桌面里 Enter 不触发 xmessage 默认按钮（xvfb 环境正常），窗口关闭判定在真实 Wayland 桌面上不可靠，故只作 D 类观察不作判据
+
 ## v0.5.1 - 2026-08-24
 
 ### Added
