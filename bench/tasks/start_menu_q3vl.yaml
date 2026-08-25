@@ -1,0 +1,13 @@
+id: start_menu_q3vl
+description: 视觉定位开始按钮（小图标疑难任务，qwen3-vl 8b-instruct 对照）
+model: qwen3-vl:8b-instruct
+runs: 2
+platforms: [win32]
+verify_level: A
+steps:
+  - click:
+      target: 任务栏上的 Windows 开始按钮
+      diff_region: [100, 200, 1820, 1000]
+      max_tries: 3
+teardown:
+  - press: esc

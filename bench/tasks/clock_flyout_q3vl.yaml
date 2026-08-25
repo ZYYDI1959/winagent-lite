@@ -1,0 +1,14 @@
+id: clock_flyout_q3vl
+description: 视觉定位任务栏时钟→容差点击→像素差分验证弹窗（qwen3-vl 8b-instruct 对照）
+model: qwen3-vl:8b-instruct
+runs: 2
+platforms: [win32]
+verify_level: A
+steps:
+  - click:
+      target: 任务栏右下角的时钟时间数字
+      title_contains: 通知中心
+      diff_region: [1300, 400, 1920, 1030]
+      max_tries: 5
+teardown:
+  - press: esc

@@ -77,6 +77,7 @@ def act(
     gone: str | None = None,
     diff_region: tuple[int, int, int, int] | None = None,
     diff_min: float = 0.05,
+    title_contains: str | None = None,
     double: bool = False,
     max_tries: int = 5,
     wait_s: float = 1.5,
@@ -84,7 +85,9 @@ def act(
 ) -> dict:
     """定位并点击 target，直到验证通过或重试耗尽。
 
-    验证方式三选一（可组合）：diff_region=点击前后该区域像素变化>=diff_min；
+    验证方式（可组合）：diff_region=点击前后该区域像素变化>=diff_min；
+    title_contains=前台窗口标题包含该词（win32 确定性验证，比像素差分稳：
+    深色面板叠深色桌面时 diff 可能贴阈值，而标题切换不受主题影响）；
     appear=该词出现在屏幕上；gone=该词从屏幕上消失。都不给则点一次即算完成。
     返回 {ok, attempts, reason}，attempts 逐步记录定位/偏移/点击/验证细节。
     """
@@ -112,13 +115,18 @@ def act(
             if ratio >= diff_min:
                 attempts.append(rec)
                 return {"ok": True, "attempts": attempts, "reason": f"diff {ratio:.3f} >= {diff_min}"}
+        if title_contains is not None and hasattr(hand, "foreground_title"):
+            if title_contains in hand.foreground_title():
+                attempts.append(rec)
+                return {"ok": True, "attempts": attempts,
+                        "reason": f"前台标题包含 {title_contains!r}"}
         if gone is not None and not vision.ask(gone, cfg):
             attempts.append(rec)
             return {"ok": True, "attempts": attempts, "reason": f"'{gone}' 已消失"}
         if appear is not None and vision.ask(appear, cfg):
             attempts.append(rec)
             return {"ok": True, "attempts": attempts, "reason": f"'{appear}' 已出现"}
-        if appear is None and gone is None and diff_region is None:
+        if appear is None and gone is None and diff_region is None and title_contains is None:
             attempts.append(rec)
             return {"ok": True, "attempts": attempts, "reason": "clicked (未配置验证)"}
         attempts.append(rec)
@@ -188,6 +196,7 @@ def _execute_steps(steps: list[dict], cfg: Config | None = None) -> dict:
                 appear=spec.get("appear"),
                 gone=spec.get("gone"),
                 diff_region=spec.get("diff_region"),
+                title_contains=spec.get("title_contains"),
                 double=spec.get("double", False),
                 max_tries=spec.get("max_tries", 5),
             )

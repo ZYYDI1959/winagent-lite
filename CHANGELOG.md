@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.5.3 - 2026-08-25
+
+### Added
+
+- **`title_contains` 验证动词**（agent.act / bench click 步骤）：点击后断言前台窗口标题包含关键词。
+  确定性（win32 GetForegroundWindow）、零开销、不受主题影响——实测深色通知面板叠深色桌面时
+  像素差分只有 0.036（阈值 0.05）贴线失效，标题切换依旧可靠；时钟任务已改用此验证。
+
+### 模型对比实测（qwen3-vl:8b-instruct vs qwen2.5vl:7b，同机同负载）
+
+- **输出格式直接兼容** FOUND x=0.xx y=0.yy（0~1 相对坐标），vision.py 零改动
+- **精度**：开始按钮（居中任务栏 x≈770 实测真值，27b 历史命中 x=780）——8b-instruct 2/2 命中
+  （769/772，±3px）；7b 历史 0/3。时钟两代都准。**小图标代差确认**
+- **速度**：单次定位 ~70s（内存双模型驻留压力下）；7b 同负载 ~100-126s
+- ⚠️ **Ollama 默认 `qwen3-vl:8b` tag 是思考版**（与 8b-thinking 同 digest）：答一个字生成 1334
+  token、`think:false` 与 `/no_think` 均关不掉；必须显式拉 `qwen3-vl:8b-instruct`
+
 ## v0.5.2 - 2026-08-25
 
 ### Added
