@@ -11,7 +11,10 @@ import yaml
 @dataclass
 class Config:
     ollama_url: str = "http://localhost:11434"
-    vision_model: str = "qwen2.5vl:7b"
+    # 0825 三代同场实测定版：qwen3-vl:8b-instruct 在 7b 全灭的开始按钮上 2/2 命中（±3px），
+    # 大目标持平、同速、输出格式零适配；27b 太慢(2-3tok/s)、3b 纯盲、思考版默认 tag 有陷阱。
+    # 注意必须用 -instruct 后缀 tag，Ollama 裸 `qwen3-vl:8b` 是思考版（答一字烧 1334 token）。
+    vision_model: str = "qwen3-vl:8b-instruct"
     # 性能与资源开销
     max_image_width: int = 1600          # 截图降采样宽度：越小传输越快、模型处理越快
     image_format: str = "png"            # png | jpeg（jpeg 体积小约 10 倍，UI 截图无损观感）
