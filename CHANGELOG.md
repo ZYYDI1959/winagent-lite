@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.6.0 - 2026-08-27
+
+### P3 收官：目标驱动全链路实测打通
+
+- **端到端首跑成功**：`winagent plan "打开记事本，输入你好世界" --execute`
+  本地 qwen3-8b-fast 规划 3 步（launch notepad_note / wait / type 中文）→ 执行 success=True。
+- **win32.wait_foreground 升级为主动强制前台**：新增按标题 EnumWindows 找窗 +
+  AttachThreadInput 绕过 Windows 焦点防盗（后台无焦点进程 Popen 的窗口自己抢不到前台，
+  被动轮询会超时失败——实测从 ZCode 控制台拉起 notepad 10 秒 focus 超时，修复后 0 秒命中）。
+  ctypes 原型逐参完整声明。
+- **notepad_note fixture 自愈**：直跑模式（无 bench setup）下 fixture 文件不存在时先落盘，
+  不再弹"找不到文件"对话框卡死 focus 守卫。
+- **MCP server 新增 `plan` 工具**：goal → 步骤 JSON（白名单校验），宿主可自行编排执行；
+  版本号同步 0.6.0。
+- 新环境依赖注意：requests/pyyaml/mss/pillow 需安装（`pip install -e .` 覆盖）。
+
 ## v0.5.3 - 2026-08-25
 
 ### Added

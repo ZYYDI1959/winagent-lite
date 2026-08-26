@@ -7,7 +7,7 @@
 - image 类型返回（screenshot 工具）供宿主直接渲染
 
 客户端配置（ZCode / Claude Desktop / Cursor 等）见 docs/PLUGINS.md。
-工具目录：look / click / type_text / key / act / run_scenario / doctor / screenshot / discover
+工具目录：plan / look / click / type_text / key / act / run_scenario / doctor / screenshot / discover
 """
 from __future__ import annotations
 
@@ -23,9 +23,18 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 _PROTOCOL_VERSION = "2024-11-05"
-_SERVER_INFO = {"name": "winagent", "version": "0.5.1"}
+_SERVER_INFO = {"name": "winagent", "version": "0.6.0"}
 
 _TOOLS = [
+    {
+        "name": "plan",
+        "description": "自然语言目标 -> 可执行步骤 JSON 数组（本地文本模型规划，白名单校验；不执行）",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"goal": {"type": "string", "description": "如：打开记事本，输入你好世界"}},
+            "required": ["goal"],
+        },
+    },
     {
         "name": "look",
         "description": "视觉定位屏幕元素（本地 VLM 看图），返回像素坐标或 NOT_FOUND",
@@ -119,6 +128,11 @@ def _handle(name: str, args: dict) -> list[dict]:
     from winagent.config import load_config
 
     cfg = load_config()
+    if name == "plan":
+        from winagent import planner
+
+        steps = planner.plan(str(args.get("goal", "")), cfg=cfg)
+        return [{"type": "text", "text": json.dumps(steps, ensure_ascii=False)}]
     if name == "look":
         pos = vision.locate(str(args.get("target", "")), cfg)
         text = "NOT_FOUND" if pos is None else f"FOUND {pos[0]},{pos[1]}"

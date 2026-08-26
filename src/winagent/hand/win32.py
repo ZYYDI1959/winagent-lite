@@ -12,11 +12,35 @@ import time
 from ctypes import wintypes
 
 _user32 = ctypes.windll.user32
+_kernel32 = ctypes.windll.kernel32
 
 try:
     _user32.SetProcessDPIAware()  # 多显示器/缩放下坐标一致性
 except Exception:  # noqa: BLE001, S110 旧系统无此 API 时降级，无需处理
     pass
+
+# 窗口枚举回调原型（逐参完整声明：缺参在部分平台上=段错误）
+_WNDENUMPROC = ctypes.WINFUNCTYPE(
+    wintypes.BOOL, wintypes.HWND, wintypes.LPARAM
+)
+_user32.EnumWindows.restype = wintypes.BOOL
+_user32.EnumWindows.argtypes = [_WNDENUMPROC, wintypes.LPARAM]
+_user32.IsWindowVisible.restype = wintypes.BOOL
+_user32.IsWindowVisible.argtypes = [wintypes.HWND]
+_user32.IsWindow.restype = wintypes.BOOL
+_user32.IsWindow.argtypes = [wintypes.HWND]
+_user32.IsIconic.restype = wintypes.BOOL
+_user32.IsIconic.argtypes = [wintypes.HWND]
+_user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+_user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+_user32.AttachThreadInput.restype = wintypes.BOOL
+_user32.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
+_user32.BringWindowToTop.restype = wintypes.BOOL
+_user32.BringWindowToTop.argtypes = [wintypes.HWND]
+_user32.SetForegroundWindow.restype = wintypes.BOOL
+_user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+_kernel32.GetCurrentThreadId.restype = wintypes.DWORD
+_kernel32.GetCurrentThreadId.argtypes = []
 
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
@@ -250,10 +274,66 @@ def foreground_title() -> str:
 
 
 def wait_foreground(substr: str, timeout: float = 10.0, interval: float = 0.15) -> bool:
-    """轮询等待前台窗口标题包含 substr；替代固定 sleep，消除启动竞态。"""
+    """轮询等待前台窗口标题包含 substr；匹配到后台窗口时主动强制前台。
+
+    从无前台权限的进程（CI/服务/控制台）里 Popen 出来的新窗口，
+    Windows 焦点防盗会拦住它自己抢焦点——这里找到窗口后用
+    AttachThreadInput 挂进目标线程再 SetForegroundWindow。
+    """
     deadline = time.monotonic() + timeout
+    key = substr.lower()
     while time.monotonic() < deadline:
-        if substr.lower() in foreground_title().lower():
+        if key in foreground_title().lower():
             return True
+        hwnd = _find_window_by_title(substr)
+        if hwnd is not None and _force_foreground(hwnd):
+            if key in foreground_title().lower():
+                return True
         time.sleep(interval)
     return False
+
+
+def _find_window_by_title(substr: str):
+    """按标题子串枚举可见顶层窗口，返回第一个匹配的 hwnd 或 None。"""
+    key = substr.lower()
+    found: list[int] = []
+
+    @_WNDENUMPROC
+    def _cb(hwnd, _lparam):
+        buf = ctypes.create_unicode_buffer(256)
+        _user32.GetWindowTextW(hwnd, buf, 256)
+        if buf.value and key in buf.value.lower() and _user32.IsWindowVisible(hwnd):
+            found.append(hwnd)
+            return False  # 找到即停
+        return True
+
+    try:
+        _user32.EnumWindows(_cb, None)
+    except Exception:  # noqa: BLE001 回调异常只影响本次查找
+        pass
+    return found[0] if found else None
+
+
+def _force_foreground(hwnd: int) -> bool:
+    """把目标窗口强制带到前台：恢复最小化 + AttachThreadInput 绕过焦点防盗。"""
+    if not _user32.IsWindow(hwnd):
+        return False
+    if _user32.IsIconic(hwnd):
+        _user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+    fg = _user32.GetForegroundWindow()
+    cur_tid = _kernel32.GetCurrentThreadId()
+    attached: list[int] = []
+    try:
+        if fg:
+            fg_tid = _user32.GetWindowThreadProcessId(fg, None)
+            if fg_tid and fg_tid != cur_tid and _user32.AttachThreadInput(cur_tid, fg_tid, True):
+                attached.append(fg_tid)
+        tgt_tid = _user32.GetWindowThreadProcessId(hwnd, None)
+        if tgt_tid and tgt_tid != cur_tid and _user32.AttachThreadInput(cur_tid, tgt_tid, True):
+            attached.append(tgt_tid)
+        _user32.BringWindowToTop(hwnd)
+        ok = bool(_user32.SetForegroundWindow(hwnd))
+    finally:
+        for tid in attached:
+            _user32.AttachThreadInput(cur_tid, tid, False)
+    return ok or _user32.GetForegroundWindow() == hwnd

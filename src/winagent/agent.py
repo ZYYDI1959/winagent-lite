@@ -25,12 +25,16 @@ def _launch_notepad() -> None:
     subprocess.Popen(["notepad.exe"], shell=False)
 
 
+NOTE_PATH = "C:/Users/ZY/AppData/Local/Temp/winagent_note.txt"
+
+
 def _launch_notepad_note() -> None:
-    """打开固定的测试笔记文件（场景 fixture；文件需先由 setup 创建）。"""
-    subprocess.Popen(
-        ["notepad.exe", "C:/Users/ZY/AppData/Local/Temp/winagent_note.txt"],
-        shell=False,
-    )
+    """打开固定的测试笔记文件；fixture 不存在时先落盘（直跑模式自愈，不弹“找不到文件”框）。"""
+    p = Path(NOTE_PATH)
+    if not p.exists():
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("", encoding="utf-8")
+    subprocess.Popen(["notepad.exe", NOTE_PATH], shell=False)
 
 
 def _launch_calc() -> None:
