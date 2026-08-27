@@ -18,6 +18,8 @@ winagent plan "打开记事本，输入你好世界" --execute
 
 本地文本模型把目标分解为步骤 JSON（白名单校验）→ 闭环执行 → 真实窗口输入中文。全程本地推理、零云 API。MCP 宿主同样可调用 `plan` 工具拿到步骤再自行编排。
 
+📺 **B站视频介绍**：[一分钟看懂 ZCode：会操作浏览器和软件的 AI 编程智能体](https://www.bilibili.com/video/BV1hphc6NE4J/)
+
 ## 安装（Windows / macOS / Linux）
 
 - **便携整合包**：下载 Release 里的 `winagent-*-portable.zip` → 解压 → 运行 `install.bat`（Win）/ `sh install.sh`（macOS/Linux）→ 自动装好并自检
