@@ -5,8 +5,18 @@
 ![demo](docs/demo.gif)
 
 [![CI](https://github.com/ZYYDI1959/winagent-lite/actions/workflows/ci.yml/badge.svg)](https://github.com/ZYYDI1959/winagent-lite/actions/workflows/ci.yml)
-[![Release v0.5.0](https://img.shields.io/badge/release-v0.5.0-blue)](https://github.com/ZYYDI1959/winagent-lite/releases)
+[![Release v0.6.0](https://img.shields.io/badge/release-v0.6.0-blue)](https://github.com/ZYYDI1959/winagent-lite/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+## 🎯 目标驱动（v0.6.0 新增，端到端实测）
+
+只说目标，Agent 自己规划、自己动手：
+
+```bash
+winagent plan "打开记事本，输入你好世界" --execute
+```
+
+本地文本模型把目标分解为步骤 JSON（白名单校验）→ 闭环执行 → 真实窗口输入中文。全程本地推理、零云 API。MCP 宿主同样可调用 `plan` 工具拿到步骤再自行编排。
 
 ## 安装（Windows / macOS / Linux）
 
@@ -28,7 +38,7 @@
 | 🧠 **规划** | 自然语言目标 → 步骤序列（本地文本模型） |
 | 🔌 **插件化** | MCP stdio server：ZCode / Claude Desktop / Cursor 等即插即用 |
 
-**像插件一样按需调用**：平台把 9 个工具挂进自己的工具列表（`look / click / type_text / key / act / run_scenario / doctor / screenshot / discover`），业务需要"点哪个按钮"就调 `act`，需要"看屏幕"就调 `screenshot`——多软件协作由宿主编排，WinAgent 只负责真实的"眼"和"手"。接入方法见 [docs/PLUGINS.md](docs/PLUGINS.md)。
+**像插件一样按需调用**：平台把 10 个工具挂进自己的工具列表（`plan / look / click / type_text / key / act / run_scenario / doctor / screenshot / discover`），业务需要"点哪个按钮"就调 `act`，需要"看屏幕"就调 `screenshot`，需要"从目标生成步骤"就调 `plan`——多软件协作由宿主编排，WinAgent 只负责真实的"眼"、"手"和"脑干"。接入方法见 [docs/PLUGINS.md](docs/PLUGINS.md)。
 
 ## 架构
 

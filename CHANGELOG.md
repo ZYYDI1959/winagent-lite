@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.6.1 - 2026-08-27
+
+### Fixed
+
+- **bench 回归修复**：`clear_notepad_session` 动词在 YAML 中声明但执行器未实现
+  （历史重构丢失），notepad 任务 setup 会抛"未知动词"。补回实现：杀记事本 +
+  清空 Win11 TabState 会话目录（防"未保存标签复活"弹框），纳入动词白名单。
+- 新增 `scripts/make_goal_gif.py`：录制目标驱动运行（plan→execute）生成 README 演示 GIF；
+  终态帧强制收录（打字后的记事本是演示落点）。
+
 ## v0.6.0 - 2026-08-27
 
 ### P3 收官：目标驱动全链路实测打通

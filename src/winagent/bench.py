@@ -60,6 +60,27 @@ def _kill_notepad() -> None:
     _kill_by_name("notepad.exe")
 
 
+def _clear_notepad_session() -> None:
+    """杀记事本并清空 Win11 TabState 会话：未保存标签会在下次启动时复活并弹"保留更改"框。"""
+    _kill_notepad()
+    time.sleep(0.4)
+    import os
+
+    tabstate = (
+        Path(os.environ.get("LOCALAPPDATA", ""))
+        / "Packages"
+        / "Microsoft.WindowsNotepad_8wekyb3d8bbwe"
+        / "LocalState"
+        / "TabState"
+    )
+    if tabstate.is_dir():
+        for f in tabstate.iterdir():
+            try:
+                f.unlink()
+            except OSError:  # noqa: S110 个别文件被占用时跳过，主流程不受影响
+                pass
+
+
 def _kill_calc() -> None:
     _kill_by_name("CalculatorApp.exe")
 
@@ -123,6 +144,8 @@ def _do_verb(verb) -> None:
             p = _safe_temp_path(val)
             if p.exists():
                 p.unlink()
+        elif key == "clear_notepad_session":
+            _clear_notepad_session()
         elif key == "press":
             hand.combo(str(val))
         else:
